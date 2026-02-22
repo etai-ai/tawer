@@ -151,10 +151,14 @@
   }
 
   .tower-btn:active { transform: scale(0.95); }
-  .tower-btn.selected { border-color: #00ff88; background: #0d2618; box-shadow: 0 0 12px rgba(0, 255, 136, 0.2); }
+  .tower-btn.selected { border-color: var(--tc); background: var(--tb); box-shadow: 0 0 12px var(--tg); }
+  .tower-btn[data-type="gun"]    { --tc: #00ff88; --tb: #0d2618; --tg: rgba(0,255,136,0.2); }
+  .tower-btn[data-type="cannon"] { --tc: #ff6b35; --tb: #261308; --tg: rgba(255,107,53,0.2); }
+  .tower-btn[data-type="sniper"] { --tc: #a55eea; --tb: #1a0d26; --tg: rgba(165,94,234,0.2); }
+  .tower-btn[data-type="frost"]  { --tc: #00d2ff; --tb: #0d1e26; --tg: rgba(0,210,255,0.2); }
   .tower-btn .cost { color: #ffdd44; font-size: 14px; font-weight: 700; }
-  .tower-btn .icon { font-size: 30px; line-height: 1; }
-  .tower-btn .tname { font-size: 13px; letter-spacing: 1px; color: #ddeeff; font-weight: 700; }
+  .tower-btn .icon-canvas { width: 36px; height: 36px; display: block; }
+  .tower-btn .tname { font-size: 13px; letter-spacing: 1px; color: var(--tc, #ddeeff); font-weight: 700; }
 
   #action-row {
     display: flex;
@@ -311,22 +315,22 @@
   <div id="controls">
     <div id="tower-bar">
       <button class="tower-btn selected" data-type="gun">
-        <span class="icon">⊕</span>
+        <canvas class="icon-canvas" width="44" height="44"></canvas>
         <span class="tname">GUN</span>
         <span class="cost">50g</span>
       </button>
       <button class="tower-btn" data-type="cannon">
-        <span class="icon">◎</span>
+        <canvas class="icon-canvas" width="44" height="44"></canvas>
         <span class="tname">CANNON</span>
         <span class="cost">100g</span>
       </button>
       <button class="tower-btn" data-type="sniper">
-        <span class="icon">⊘</span>
+        <canvas class="icon-canvas" width="44" height="44"></canvas>
         <span class="tname">SNIPER</span>
         <span class="cost">150g</span>
       </button>
       <button class="tower-btn" data-type="frost">
-        <span class="icon">❄</span>
+        <canvas class="icon-canvas" width="44" height="44"></canvas>
         <span class="tname">FROST</span>
         <span class="cost">75g</span>
       </button>
@@ -440,6 +444,73 @@ const TOWER_DEFS = {
   sniper: { cost: 150, range: 220, damage: 65, rate: 1800, color: '#a55eea', bullet: '#a55eea', bulletSpeed: 10, splash: 0 },
   frost:  { cost: 75,  range: 110, damage: 5,  rate: 350,  color: '#00d2ff', bullet: '#00d2ff', bulletSpeed: 5, splash: 0, slow: 0.4 },
 };
+
+function drawTowerIcon(cvs, type) {
+  const c = cvs.getContext('2d');
+  const s = cvs.width; // 44
+  const cx = s / 2, cy = s / 2;
+  const def = TOWER_DEFS[type];
+  const col = def.color;
+
+  c.clearRect(0, 0, s, s);
+
+  // Range hint ring
+  c.strokeStyle = col + '22';
+  c.lineWidth = 1;
+  c.beginPath(); c.arc(cx, cy, s * 0.46, 0, Math.PI * 2); c.stroke();
+
+  // Base circle
+  c.fillStyle = '#1a2535';
+  c.beginPath(); c.arc(cx, cy, s * 0.32, 0, Math.PI * 2); c.fill();
+  c.strokeStyle = col;
+  c.lineWidth = 2;
+  c.stroke();
+
+  // Barrel — unique per type
+  c.strokeStyle = col;
+  c.lineCap = 'round';
+  if (type === 'gun') {
+    c.lineWidth = s * 0.09;
+    c.beginPath(); c.moveTo(cx, cy); c.lineTo(cx, cy - s * 0.38); c.stroke();
+  } else if (type === 'cannon') {
+    c.lineWidth = s * 0.14;
+    c.beginPath(); c.moveTo(cx, cy); c.lineTo(cx, cy - s * 0.32); c.stroke();
+    // muzzle flare hint
+    c.fillStyle = col + '44';
+    c.beginPath(); c.arc(cx, cy - s * 0.34, s * 0.1, 0, Math.PI * 2); c.fill();
+  } else if (type === 'sniper') {
+    c.lineWidth = s * 0.06;
+    c.beginPath(); c.moveTo(cx, cy); c.lineTo(cx, cy - s * 0.44); c.stroke();
+    // crosshair
+    c.strokeStyle = col + '88';
+    c.lineWidth = 1;
+    const ch = s * 0.08;
+    c.beginPath(); c.moveTo(cx - ch, cy - s * 0.44); c.lineTo(cx + ch, cy - s * 0.44); c.stroke();
+  } else if (type === 'frost') {
+    c.lineWidth = s * 0.08;
+    c.beginPath(); c.moveTo(cx, cy); c.lineTo(cx, cy - s * 0.34); c.stroke();
+    // frost spikes
+    c.lineWidth = s * 0.05;
+    c.beginPath(); c.moveTo(cx - s * 0.1, cy - s * 0.22); c.lineTo(cx, cy - s * 0.34); c.lineTo(cx + s * 0.1, cy - s * 0.22); c.stroke();
+  }
+
+  // Center dot
+  c.fillStyle = col;
+  c.beginPath(); c.arc(cx, cy, s * 0.07, 0, Math.PI * 2); c.fill();
+
+  // Glow
+  c.shadowColor = col;
+  c.shadowBlur = 6;
+  c.fillStyle = col + '44';
+  c.beginPath(); c.arc(cx, cy, s * 0.12, 0, Math.PI * 2); c.fill();
+  c.shadowBlur = 0;
+}
+
+// Draw all tower button icons
+document.querySelectorAll('.tower-btn').forEach(btn => {
+  const cvs = btn.querySelector('.icon-canvas');
+  if (cvs) drawTowerIcon(cvs, btn.dataset.type);
+});
 
 function updateHUD() {
   document.getElementById('gold').textContent = gold;
