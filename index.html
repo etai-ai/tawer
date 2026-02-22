@@ -225,7 +225,7 @@
     letter-spacing: 6px;
     text-shadow: 0 0 30px rgba(255, 71, 87, 0.4);
   }
-  #game-over-overlay .win { color: #00ff88; text-shadow: 0 0 30px rgba(0, 255, 136, 0.4); }
+
 
   #restart-btn {
     background: #1a2233;
@@ -299,7 +299,7 @@
     <div id="hud">
       <div class="hud-item"><span class="hud-label">GOLD</span><span class="hud-value gold" id="gold">300</span></div>
       <div class="hud-item"><span class="hud-label">LIVES</span><span class="hud-value lives" id="lives">30</span></div>
-      <div class="hud-item"><span class="hud-label">WAVE</span><span class="hud-value wave-val" id="wave">0/10</span></div>
+      <div class="hud-item"><span class="hud-label">WAVE</span><span class="hud-value wave-val" id="wave">0</span></div>
       <div class="hud-item"><span class="hud-label">SCORE</span><span class="hud-value score-val" id="score">0</span></div>
     </div>
   </div>
@@ -491,8 +491,8 @@ function buildPath() {
 
 // --- STATE ---
 let gold = 300, lives = 30, waveNum = 0, score = 0;
-const MAX_WAVES = 10;
 let towers = [], enemies = [], bullets = [], particles = [], placeEffects = [];
+let mapShiftNotification = null;
 let selectedTower = 'gun';
 let selectedPlacedTower = null;
 let waveActive = false, waveSpawning = false, spawnQueue = [], spawnTimer = 0;
@@ -575,7 +575,7 @@ document.querySelectorAll('.tower-btn').forEach(btn => {
 function updateHUD() {
   document.getElementById('gold').textContent = gold;
   document.getElementById('lives').textContent = lives;
-  document.getElementById('wave').textContent = `${waveNum}/${MAX_WAVES}`;
+  document.getElementById('wave').textContent = waveNum;
   document.getElementById('score').textContent = score;
   document.querySelectorAll('.tower-btn').forEach(btn => {
     const cost = TOWER_DEFS[btn.dataset.type].cost;
@@ -612,7 +612,7 @@ document.getElementById('auto-btn').addEventListener('click', e => {
   const btn = document.getElementById('auto-btn');
   btn.textContent = autoMode ? 'AUTO' : 'MANUAL';
   btn.classList.toggle('active', autoMode);
-  if (autoMode && !waveActive && !gameOver && waveNum < MAX_WAVES) startWave();
+  if (autoMode && !waveActive && !gameOver) startWave();
 });
 
 // --- HOVER / TOUCH PREVIEW STATE ---
@@ -706,10 +706,10 @@ function startWave() {
   waveSpawning = true;
   spawnTimer = 0;
 
-  const baseCount = waveNum === 1 ? 3 : 4 + waveNum * 2;
-  const hp = waveNum === 1 ? 15 : 20 + waveNum * 12;
-  const baseSpeed = (waveNum === 1 ? 0.7 : 0.9 + waveNum * 0.06) * (TILE / 40);
-  const reward = 8 + waveNum;
+  const baseCount = waveNum === 1 ? 3 : 3 + Math.floor(waveNum * 1.5 + Math.pow(waveNum, 0.8));
+  const hp = waveNum === 1 ? 15 : 15 + waveNum * 10 + Math.pow(waveNum, 1.6);
+  const baseSpeed = (waveNum === 1 ? 0.7 : 0.8 + Math.min(waveNum * 0.04, 1.2)) * (TILE / 40);
+  const reward = 8 + Math.floor(waveNum * 0.8);
 
   spawnQueue = [];
 
@@ -734,42 +734,20 @@ function startWave() {
 
 function getWaveComposition(wave, count) {
   const comp = [];
-  if (wave <= 2) {
-    // Early: just grunts
-    for (let i = 0; i < count; i++) comp.push({ type: 'grunt' });
-  } else if (wave <= 4) {
-    // Introduce runners
-    for (let i = 0; i < count; i++) comp.push({ type: i % 3 === 0 ? 'runner' : 'grunt' });
-  } else if (wave <= 6) {
-    // Mix in tanks
-    for (let i = 0; i < count; i++) {
-      if (i % 5 === 0) comp.push({ type: 'tank' });
-      else if (i % 3 === 0) comp.push({ type: 'runner' });
-      else comp.push({ type: 'grunt' });
-    }
-  } else if (wave <= 8) {
-    // Swarms + healers
-    for (let i = 0; i < count; i++) {
-      if (i % 6 === 0) comp.push({ type: 'healer' });
-      else if (i % 4 === 0) comp.push({ type: 'tank' });
-      else if (i % 2 === 0) comp.push({ type: 'swarm' });
-      else comp.push({ type: 'runner' });
-    }
-    // Extra swarm units
-    for (let i = 0; i < 4; i++) comp.push({ type: 'swarm' });
-  } else {
-    // Late game: everything
-    for (let i = 0; i < count; i++) {
-      const roll = i % 7;
-      if (roll === 0) comp.push({ type: 'tank' });
-      else if (roll === 1) comp.push({ type: 'runner' });
-      else if (roll === 2) comp.push({ type: 'healer' });
-      else if (roll === 3) comp.push({ type: 'swarm' });
-      else comp.push({ type: 'grunt' });
-    }
+  // Available types unlock progressively
+  const types = ['grunt'];
+  if (wave >= 3) types.push('runner');
+  if (wave >= 5) types.push('tank');
+  if (wave >= 7) types.push('swarm');
+  if (wave >= 9) types.push('healer');
+
+  for (let i = 0; i < count; i++) {
+    comp.push({ type: types[i % types.length] });
   }
-  // Boss every 3 waves
-  if (wave % 3 === 0) comp.push({ type: 'boss' });
+  // Boss every 5 waves
+  if (wave % 5 === 0) comp.push({ type: 'boss' });
+  // Double boss every 15 waves
+  if (wave % 15 === 0) comp.push({ type: 'boss' });
   return comp;
 }
 
@@ -806,7 +784,7 @@ function update(dt, ts) {
   for (const e of enemies) {
     if (!e.alive) continue;
     const target = path[e.pathIdx + 1];
-    if (!target) { e.alive = false; lives--; updateHUD(); if (lives <= 0) endGame(false); continue; }
+    if (!target) { e.alive = false; lives--; updateHUD(); if (lives <= 0) endGame(); continue; }
     const dx = target.x - e.x, dy = target.y - e.y;
     const dist = Math.hypot(dx, dy);
     const spd = (e.slowTimer > 0 ? e.speed * 0.4 : e.speed) * gameSpeed;
@@ -866,12 +844,36 @@ function update(dt, ts) {
 
   if (waveActive && !waveSpawning && spawnQueue.length === 0 && enemies.length === 0) {
     waveActive = false;
-    gold += 20 + waveNum * 5; // wave completion bonus
+    gold += 15 + Math.floor(waveNum * 2); // wave completion bonus (tapers off relative to costs)
     updateHUD();
     document.getElementById('start-btn').disabled = false;
-    if (waveNum >= MAX_WAVES) endGame(true);
-    else if (autoMode) startWave();
+    // Map rotation every 10 waves
+    if (waveNum > 0 && waveNum % 10 === 0) {
+      rotateMap();
+    } else if (autoMode) {
+      startWave();
+    }
   }
+
+  // Update map shift notification
+  if (mapShiftNotification) {
+    mapShiftNotification.life -= dt;
+    if (mapShiftNotification.life <= 0) mapShiftNotification = null;
+  }
+}
+
+function rotateMap() {
+  currentMapIdx = (currentMapIdx + 1) % MAPS.length;
+  mapData = MAPS[currentMapIdx].data.map(r => [...r]);
+  towers = [];
+  selectedPlacedTower = null;
+  const bonus = 200 + waveNum * 10;
+  gold += bonus;
+  resize();
+  updateHUD();
+  mapShiftNotification = { life: 2500, maxLife: 2500, mapName: MAPS[currentMapIdx].name, bonus };
+  // Continue auto-wave after a brief pause
+  setTimeout(() => { if (autoMode && !waveActive && !gameOver) startWave(); }, 2000);
 }
 
 function damageEnemy(e, dmg, slow) {
@@ -883,14 +885,14 @@ function damageEnemy(e, dmg, slow) {
   }
 }
 
-function endGame(win) {
+function endGame() {
   gameOver = true;
   const overlay = document.getElementById('game-over-overlay');
   const title = document.getElementById('end-title');
   const msg = document.getElementById('end-msg');
   overlay.classList.add('show');
-  if (win) { title.textContent = 'VICTORY'; title.className = 'win'; msg.textContent = `Score: ${score} · All ${MAX_WAVES} waves survived`; }
-  else { title.textContent = 'DEFEATED'; title.className = ''; msg.textContent = `Score: ${score} · Reached wave ${waveNum}`; }
+  title.textContent = 'DEFEATED'; title.className = '';
+  msg.textContent = `Score: ${score} · Wave ${waveNum}`;
 }
 
 document.getElementById('restart-btn').addEventListener('click', e => {
@@ -898,7 +900,7 @@ document.getElementById('restart-btn').addEventListener('click', e => {
   gold = 300; lives = 30; waveNum = 0; score = 0;
   towers = []; enemies = []; bullets = []; particles = []; placeEffects = [];
   waveActive = false; waveSpawning = false; spawnQueue = []; gameOver = false;
-  selectedPlacedTower = null;
+  selectedPlacedTower = null; mapShiftNotification = null;
   gameSpeed = 1; autoMode = true; gameTime = 0;
   currentMapIdx = (currentMapIdx + 1) % MAPS.length;
   mapData = MAPS[currentMapIdx].data.map(r => [...r]);
@@ -1148,6 +1150,26 @@ function draw() {
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillStyle = '#00ff88'; ctx.fillText('▶', path[0].x, path[0].y);
     ctx.fillStyle = '#ff4757'; ctx.fillText('■', path[path.length-1].x, path[path.length-1].y);
+  }
+
+  // --- MAP SHIFT NOTIFICATION ---
+  if (mapShiftNotification) {
+    const ms = mapShiftNotification;
+    const t = ms.life / ms.maxLife; // 1→0
+    const alpha = t < 0.2 ? t / 0.2 : t > 0.8 ? (1 - t) / 0.2 : 1;
+    ctx.save();
+    ctx.globalAlpha = alpha * 0.85;
+    ctx.fillStyle = '#0a0c10';
+    ctx.fillRect(0, H * 0.35, W, H * 0.3);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = '#00d2ff';
+    ctx.font = `bold ${Math.max(16, TILE * 0.7)}px Orbitron, sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('MAP SHIFT', W / 2, H * 0.44);
+    ctx.fillStyle = '#8899aa';
+    ctx.font = `${Math.max(11, TILE * 0.38)}px 'Share Tech Mono', monospace`;
+    ctx.fillText(`${ms.mapName} · +${ms.bonus}g`, W / 2, H * 0.54);
+    ctx.restore();
   }
 
   // --- GHOST TOWER PREVIEW ---
