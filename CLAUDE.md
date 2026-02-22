@@ -20,7 +20,7 @@ Single-file HTML5 canvas tower defense game (~1245 lines). Everything (HTML, CSS
 - **Lines ~660-695**: Tower placement and selection logic
 - **Lines ~700-710**: `ENEMY_TYPES` — enemy type definitions (grunt, runner, tank, swarm, healer, boss)
 - **Lines ~712-762**: Wave spawning, scaling formulas, and composition logic
-- **Lines ~770-905**: Game loop, update (spawning, movement, targeting, bullets, damage), rotateMap
+- **Lines ~770-905**: Game loop, update (spawning, movement, targeting, bullets, damage), levelUp
 - **Lines ~940+**: Rendering (draw function)
 
 ## Game Constants
@@ -28,11 +28,11 @@ Single-file HTML5 canvas tower defense game (~1245 lines). Everything (HTML, CSS
 - Starting gold: 300, starting lives: 30
 - 4 tower types: gun (50g), cannon (100g), sniper (150g), frost (75g)
 - 6 enemy types: grunt, runner, tank, swarm, healer, boss (every 5 waves)
-- 4 map layouts (SERPENT, SPIRAL, ZIGZAG, FORTRESS), map shifts every 10 waves
+- Level-up every 10 waves (towers kept, gold bonus, +3 lives, atmosphere change)
 - Spawn interval: 600ms between enemies
 - Frost slow: 40% speed for 1500ms; Cannon splash: 50% damage in 35-unit radius
 - Wave completion bonus: `15 + floor(wave * 2)` gold
-- Map shift bonus: `200 + wave * 10` gold, all towers cleared
+- Level-up bonus: `100 + level * 25` gold, +3 lives (capped at 30)
 
 ## Conventions
 - All game state is in module-level variables (no classes, no modules)

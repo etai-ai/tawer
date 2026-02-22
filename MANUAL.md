@@ -114,13 +114,14 @@ Enemy types unlock progressively and cycle through the available pool:
 - **Every 5 waves** (5, 10, 15, 20...): 1 Boss spawns
 - **Every 15 waves** (15, 30, 45...): 2 Bosses spawn
 
-### Map Shifts
+### Level Up
 
-Every **10 waves**, the map rotates to the next layout:
+Every **10 waves**, you level up:
 
-- All towers are destroyed
-- You receive a gold bonus: **200 + wave x 10** gold
-- The map cycles through 4 layouts: **SERPENT, SPIRAL, ZIGZAG, FORTRESS**
+- All towers are **kept** — nothing is destroyed
+- You receive a gold bonus: **100 + level x 25** gold
+- You gain **+3 lives** (capped at 30)
+- The atmosphere shifts to a new color palette
 
 ---
 
@@ -132,7 +133,7 @@ Every **10 waves**, the map rotates to the next layout:
 |--------|--------|
 | Killing enemies | Varies by type and wave (see enemy table) |
 | Wave completion bonus | 15 + wave x 2 |
-| Map shift bonus | 200 + wave x 10 |
+| Level-up bonus | 100 + level x 25 |
 
 ### Spending Gold
 
@@ -177,5 +178,5 @@ Affects all movement, firing, and spawning. Useful for speeding through early wa
 3. **Place FROST before damage towers** — Enemies hit the slow first, then crawl through your kill zone
 4. **Save for SNIPERS before boss waves** (5, 10, 15...) — Their high damage melts bosses
 5. **Use CANNONS against swarms** (wave 7+) — Splash damage handles groups efficiently
-6. **Plan for map shifts** — All towers are destroyed every 10 waves, so spend aggressively before a shift
+6. **Level-ups are free power** — Every 10 waves you get bonus gold, +3 lives, and keep all towers
 7. **Cover chokepoints** — Place towers where the path turns so enemies spend more time in range

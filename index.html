@@ -112,7 +112,8 @@
 
   #game-canvas {
     display: block;
-    background: #0d1117;
+    width: 100%;
+    height: 100%;
     touch-action: none;
   }
 
@@ -359,7 +360,7 @@ const wrapper = document.getElementById('canvas-wrapper');
 
 // Portrait map: 10 cols x 16 rows
 const MAP_COLS = 10, MAP_ROWS = 16;
-let TILE, W, H;
+let TILE, W, H, GRID_OX = 0, GRID_OY = 0;
 
 const MAPS = [
   { name: 'SERPENT', data: [
@@ -386,7 +387,7 @@ const MAPS = [
     [0,0,0,0,0,0,0,0,1,0],
     [0,1,1,1,1,1,1,0,1,0],
     [0,1,0,0,0,0,1,0,1,0],
-    [0,1,0,1,1,0,1,0,1,0],
+    [0,1,0,1,3,0,1,0,1,0],
     [0,1,0,1,0,0,1,0,1,0],
     [0,1,0,1,0,0,1,0,1,0],
     [0,1,0,1,0,0,1,0,1,0],
@@ -395,7 +396,7 @@ const MAPS = [
     [0,1,0,0,0,0,0,0,1,0],
     [0,1,1,1,1,1,1,1,1,0],
     [0,0,0,0,0,0,0,0,0,0],
-    [0,0,0,0,3,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0],
     [0,0,0,0,0,0,0,0,0,0],
   ]},
   { name: 'ZIGZAG', data: [
@@ -440,18 +441,17 @@ let currentMapIdx = Math.floor(Math.random() * MAPS.length);
 let mapData = MAPS[currentMapIdx].data.map(r => [...r]);
 
 function resize() {
-  const cw = wrapper.clientWidth;
-  const ch = wrapper.clientHeight;
-  const tileW = Math.floor(cw / MAP_COLS);
-  const tileH = Math.floor(ch / MAP_ROWS);
-  TILE = Math.min(tileW, tileH);
+  const rect = canvas.getBoundingClientRect();
+  const cw = Math.round(rect.width);
+  const ch = Math.round(rect.height);
+  TILE = Math.floor(ch / MAP_ROWS);
   TILE = Math.max(TILE, 18);
   W = TILE * MAP_COLS;
   H = TILE * MAP_ROWS;
-  canvas.width = W;
-  canvas.height = H;
-  canvas.style.width = W + 'px';
-  canvas.style.height = H + 'px';
+  canvas.width = cw;
+  canvas.height = ch;
+  GRID_OX = Math.floor((cw - W) / 2);
+  GRID_OY = Math.floor((ch - H) / 2);
   buildPath();
   for (const t of towers) {
     t.x = t.col * TILE + TILE / 2;
@@ -612,6 +612,7 @@ document.getElementById('speed-btn').addEventListener('click', e => {
   e.preventDefault();
   if (gameSpeed === 1) gameSpeed = 2;
   else if (gameSpeed === 2) gameSpeed = 3;
+  else if (gameSpeed === 3) gameSpeed = 4;
   else gameSpeed = 1;
   document.getElementById('speed-btn').textContent = gameSpeed + 'X';
 });
@@ -632,8 +633,8 @@ function updateHover(e) {
   const rect = canvas.getBoundingClientRect();
   const cx = e.touches ? e.touches[0].clientX : e.clientX;
   const cy = e.touches ? e.touches[0].clientY : e.clientY;
-  const mx = (cx - rect.left) * (W / rect.width);
-  const my = (cy - rect.top) * (H / rect.height);
+  const mx = (cx - rect.left) * (canvas.width / rect.width) - GRID_OX;
+  const my = (cy - rect.top) * (canvas.height / rect.height) - GRID_OY;
   hoverCol = Math.floor(mx / TILE);
   hoverRow = Math.floor(my / TILE);
 }
@@ -651,8 +652,8 @@ function getCanvasPos(e) {
   const cx = e.touches ? e.touches[0].clientX : e.clientX;
   const cy = e.touches ? e.touches[0].clientY : e.clientY;
   return {
-    x: (cx - rect.left) * (W / rect.width),
-    y: (cy - rect.top) * (H / rect.height),
+    x: (cx - rect.left) * (canvas.width / rect.width) - GRID_OX,
+    y: (cy - rect.top) * (canvas.height / rect.height) - GRID_OY,
   };
 }
 
@@ -857,21 +858,21 @@ function update(dt, ts) {
     gold += 15 + Math.floor(waveNum * 2); // wave completion bonus (tapers off relative to costs)
     updateHUD();
     document.getElementById('start-btn').disabled = false;
-    // Map rotation every 10 waves
+    // Level up every 10 waves
     if (waveNum > 0 && waveNum % 10 === 0) {
-      rotateMap();
+      levelUp();
     } else if (autoMode) {
       startWave();
     }
   }
 
-  // Update map shift notification
+  // Update level-up notification
   if (mapShiftNotification) {
     mapShiftNotification.life -= dt;
     if (mapShiftNotification.life <= 0) mapShiftNotification = null;
   }
 
-  // Map shift delay — start next wave when it expires
+  // Level-up delay — start next wave when it expires
   if (mapShiftDelay > 0) {
     mapShiftDelay -= dt;
     if (mapShiftDelay <= 0) {
@@ -879,20 +880,47 @@ function update(dt, ts) {
       if (autoMode && !waveActive && !gameOver) startWave();
     }
   }
+
+  // Atmosphere lerp
+  if (atmosphereLerping) {
+    atmosphereT += dt / 2000;
+    if (atmosphereT >= 1) {
+      atmosphereT = 1;
+      atmosphereLerping = false;
+      currentAtmosphere = copyPalette(targetAtmosphere);
+    } else {
+      currentAtmosphere = lerpPalette(fromAtmosphere, targetAtmosphere, atmosphereT);
+    }
+  }
+
+  // Ambient particles
+  while (ambientParticles.length < 20) {
+    const p = spawnAmbientParticle();
+    if (p) ambientParticles.push(p); else break;
+  }
+  for (const ap of ambientParticles) {
+    ap.life -= dt;
+    ap.x = ap.baseX + Math.sin(ap.phase + gameTime * 0.0008) * TILE * 0.5;
+    ap.y = ap.baseY + Math.cos(ap.phase * 1.3 + gameTime * 0.0006) * TILE * 0.3;
+  }
+  ambientParticles = ambientParticles.filter(ap => ap.life > 0);
 }
 
-function rotateMap() {
+function levelUp() {
   level++;
-  currentMapIdx = (currentMapIdx + 1) % MAPS.length;
-  mapData = MAPS[currentMapIdx].data.map(r => [...r]);
-  towers = [];
-  selectedPlacedTower = null;
-  const bonus = 200 + waveNum * 10;
+  const palIdx = Math.min(level - 1, ATMOSPHERE_PALETTES.length - 1);
+  const bonus = 100 + level * 25;
   gold += bonus;
-  resize();
+  lives = Math.min(lives + 3, 30);
+  // Trigger atmosphere transition
+  fromAtmosphere = copyPalette(currentAtmosphere);
+  targetAtmosphere = copyPalette(ATMOSPHERE_PALETTES[palIdx]);
+  atmosphereT = 0;
+  atmosphereLerping = true;
   updateHUD();
-  mapShiftNotification = { life: 2500, maxLife: 2500, level, bonus };
-  mapShiftDelay = 2500;
+  const palName = ATMOSPHERE_PALETTES[palIdx].name;
+  mapShiftNotification = { life: 4500, maxLife: 4500, level, bonus, palName };
+  mapShiftDelay = 4500;
 }
 
 function damageEnemy(e, dmg, slow) {
@@ -921,6 +949,10 @@ document.getElementById('restart-btn').addEventListener('click', e => {
   waveActive = false; waveSpawning = false; spawnQueue = []; gameOver = false;
   selectedPlacedTower = null; mapShiftNotification = null; mapShiftDelay = 0;
   gameSpeed = 1; autoMode = true; gameTime = 0;
+  currentAtmosphere = copyPalette(ATMOSPHERE_PALETTES[0]);
+  fromAtmosphere = null; targetAtmosphere = null;
+  atmosphereT = 0; atmosphereLerping = false;
+  ambientParticles = [];
   currentMapIdx = (currentMapIdx + 1) % MAPS.length;
   mapData = MAPS[currentMapIdx].data.map(r => [...r]);
   resize();
@@ -939,49 +971,157 @@ function shadeColor(hex, amt) {
   return `rgb(${r},${g},${b})`;
 }
 
+// --- ATMOSPHERE ---
+const ATMOSPHERE_PALETTES = [
+  { name: 'FOREST', grass: '#08100a', grassTex: '#0c1610', gridLine: '#0e1a10',
+    path: '#4a4035', pathInset: '#5c5045', pathBorder: '#6a6050',
+    glowOuter: 'rgba(180,150,100,0.12)', glowInner: 'rgba(200,170,120,0.06)',
+    startTile: '#2a6040', startInset: '#308050', endTile: '#6a2828', endInset: '#803030',
+    accent: '#88aa66', notifColor: '#ff9f43' },
+  { name: 'DEPTHS', grass: '#080c14', grassTex: '#0c1018', gridLine: '#0e1620',
+    path: '#2a3548', pathInset: '#364558', pathBorder: '#4a5568',
+    glowOuter: 'rgba(80,130,200,0.12)', glowInner: 'rgba(100,150,220,0.06)',
+    startTile: '#1a4060', startInset: '#205070', endTile: '#602828', endInset: '#703030',
+    accent: '#4488cc', notifColor: '#4488cc' },
+  { name: 'CORRUPTION', grass: '#0e0810', grassTex: '#120c16', gridLine: '#1a1020',
+    path: '#3a2845', pathInset: '#4a3858', pathBorder: '#5a4868',
+    glowOuter: 'rgba(150,80,200,0.12)', glowInner: 'rgba(170,100,220,0.06)',
+    startTile: '#2a4060', startInset: '#305070', endTile: '#602848', endInset: '#703058',
+    accent: '#aa55ee', notifColor: '#aa55ee' },
+  { name: 'CRIMSON', grass: '#10080a', grassTex: '#160c0e', gridLine: '#201012',
+    path: '#45282a', pathInset: '#583838', pathBorder: '#684848',
+    glowOuter: 'rgba(200,80,80,0.12)', glowInner: 'rgba(220,100,100,0.06)',
+    startTile: '#2a6040', startInset: '#308050', endTile: '#8a2020', endInset: '#a02828',
+    accent: '#ee4444', notifColor: '#ee4444' },
+  { name: 'VOID', grass: '#06060a', grassTex: '#0a0a10', gridLine: '#101018',
+    path: '#282830', pathInset: '#383840', pathBorder: '#484850',
+    glowOuter: 'rgba(200,200,255,0.12)', glowInner: 'rgba(220,220,255,0.06)',
+    startTile: '#1a3050', startInset: '#204060', endTile: '#501a1a', endInset: '#602020',
+    accent: '#aaaaff', notifColor: '#aaaaff' },
+];
+
+function lerpHex(a, b, t) {
+  const ar = parseInt(a.slice(1,3),16), ag = parseInt(a.slice(3,5),16), ab = parseInt(a.slice(5,7),16);
+  const br = parseInt(b.slice(1,3),16), bg = parseInt(b.slice(3,5),16), bb = parseInt(b.slice(5,7),16);
+  const r = Math.round(ar + (br - ar) * t);
+  const g = Math.round(ag + (bg - ag) * t);
+  const bl = Math.round(ab + (bb - ab) * t);
+  return '#' + ((1<<24)|(r<<16)|(g<<8)|bl).toString(16).slice(1);
+}
+
+function lerpRgba(a, b, t) {
+  const pa = a.match(/[\d.]+/g).map(Number);
+  const pb = b.match(/[\d.]+/g).map(Number);
+  const r = Math.round(pa[0]+(pb[0]-pa[0])*t);
+  const g = Math.round(pa[1]+(pb[1]-pa[1])*t);
+  const bl = Math.round(pa[2]+(pb[2]-pa[2])*t);
+  const al = +(pa[3]+(pb[3]-pa[3])*t).toFixed(3);
+  return `rgba(${r},${g},${bl},${al})`;
+}
+
+function copyPalette(p) { return Object.assign({}, p); }
+
+function lerpPalette(from, to, t) {
+  return {
+    name: to.name,
+    grass: lerpHex(from.grass, to.grass, t),
+    grassTex: lerpHex(from.grassTex, to.grassTex, t),
+    gridLine: lerpHex(from.gridLine, to.gridLine, t),
+    path: lerpHex(from.path, to.path, t),
+    pathInset: lerpHex(from.pathInset, to.pathInset, t),
+    pathBorder: lerpHex(from.pathBorder, to.pathBorder, t),
+    glowOuter: lerpRgba(from.glowOuter, to.glowOuter, t),
+    glowInner: lerpRgba(from.glowInner, to.glowInner, t),
+    startTile: lerpHex(from.startTile, to.startTile, t),
+    startInset: lerpHex(from.startInset, to.startInset, t),
+    endTile: lerpHex(from.endTile, to.endTile, t),
+    endInset: lerpHex(from.endInset, to.endInset, t),
+    accent: lerpHex(from.accent, to.accent, t),
+    notifColor: lerpHex(from.notifColor, to.notifColor, t),
+  };
+}
+
+let currentAtmosphere = copyPalette(ATMOSPHERE_PALETTES[0]);
+let fromAtmosphere = null, targetAtmosphere = null;
+let atmosphereT = 0, atmosphereLerping = false;
+let ambientParticles = [];
+
+function spawnAmbientParticle() {
+  if (path.length < 2) return null;
+  const idx = Math.floor(Math.random() * (path.length - 1));
+  const px = path[idx].x + (Math.random() - 0.5) * TILE * 3;
+  const py = path[idx].y + (Math.random() - 0.5) * TILE * 3;
+  return {
+    x: px, y: py, baseX: px, baseY: py,
+    life: 3000 + Math.random() * 5000,
+    maxLife: 3000 + Math.random() * 5000,
+    phase: Math.random() * Math.PI * 2,
+    size: 1 + Math.random() * 2,
+  };
+}
+
 // --- DRAW ---
 function draw() {
-  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = currentAtmosphere.grass;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.save();
+  ctx.translate(GRID_OX, GRID_OY);
 
-  for (let r = 0; r < MAP_ROWS; r++) {
-    for (let c = 0; c < MAP_COLS; c++) {
-      const x = c * TILE, y = r * TILE, v = mapData[r][c];
+  const rStart = -Math.ceil(GRID_OY / TILE);
+  const rEnd = MAP_ROWS + Math.ceil((canvas.height - GRID_OY - H) / TILE);
+  const cStart = -Math.ceil(GRID_OX / TILE);
+  const cEnd = MAP_COLS + Math.ceil((canvas.width - GRID_OX - W) / TILE);
+
+  for (let r = rStart; r < rEnd; r++) {
+    for (let c = cStart; c < cEnd; c++) {
+      const x = c * TILE, y = r * TILE;
+      const inGrid = r >= 0 && r < MAP_ROWS && c >= 0 && c < MAP_COLS;
+      const v = inGrid ? mapData[r][c] : 0;
       if (v === 0) {
-        // Dark forest grass
-        ctx.fillStyle = '#08100a';
+        ctx.fillStyle = currentAtmosphere.grass;
         ctx.fillRect(x, y, TILE, TILE);
-        ctx.strokeStyle = '#0e1a10'; ctx.lineWidth = 0.5;
+        ctx.strokeStyle = currentAtmosphere.gridLine; ctx.lineWidth = 0.5;
         ctx.strokeRect(x, y, TILE, TILE);
-        // subtle grass texture
-        ctx.fillStyle = '#0c1610';
+        ctx.fillStyle = currentAtmosphere.grassTex;
         ctx.fillRect(x + TILE*0.25, y + TILE*0.35, TILE*0.12, TILE*0.12);
         ctx.fillRect(x + TILE*0.65, y + TILE*0.6, TILE*0.1, TILE*0.1);
       } else {
-        // Warm sandy path - high contrast vs dark grass
-        ctx.fillStyle = v === 2 ? '#2a6040' : v === 3 ? '#6a2828' : '#4a4035';
+        ctx.fillStyle = v === 2 ? currentAtmosphere.startTile : v === 3 ? currentAtmosphere.endTile : currentAtmosphere.path;
         ctx.fillRect(x, y, TILE, TILE);
         const inset = TILE * 0.06;
-        ctx.fillStyle = v === 2 ? '#308050' : v === 3 ? '#803030' : '#5c5045';
+        ctx.fillStyle = v === 2 ? currentAtmosphere.startInset : v === 3 ? currentAtmosphere.endInset : currentAtmosphere.pathInset;
         ctx.fillRect(x + inset, y + inset, TILE - inset*2, TILE - inset*2);
-        ctx.strokeStyle = '#6a6050'; ctx.lineWidth = 0.5;
+        ctx.strokeStyle = currentAtmosphere.pathBorder; ctx.lineWidth = 0.5;
         ctx.strokeRect(x, y, TILE, TILE);
       }
     }
   }
 
   if (path.length > 1) {
-    ctx.strokeStyle = 'rgba(180,150,100,0.12)';
-    ctx.lineWidth = TILE * 0.75; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    const glowIntensity = 1 + Math.min(level - 1, 4) * 0.15;
+    ctx.strokeStyle = currentAtmosphere.glowOuter;
+    ctx.lineWidth = TILE * 0.75 * glowIntensity; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     ctx.beginPath(); ctx.moveTo(path[0].x, path[0].y);
     for (let i = 1; i < path.length; i++) ctx.lineTo(path[i].x, path[i].y);
     ctx.stroke();
-    // second tighter glow
-    ctx.strokeStyle = 'rgba(200,170,120,0.06)';
-    ctx.lineWidth = TILE * 0.4;
+    ctx.strokeStyle = currentAtmosphere.glowInner;
+    ctx.lineWidth = TILE * 0.4 * glowIntensity;
     ctx.beginPath(); ctx.moveTo(path[0].x, path[0].y);
     for (let i = 1; i < path.length; i++) ctx.lineTo(path[i].x, path[i].y);
     ctx.stroke();
   }
+
+  // Ambient particles
+  for (const ap of ambientParticles) {
+    const lifeT = ap.life / ap.maxLife;
+    const fadeOut = Math.min(lifeT * 5, 1);
+    const fadeIn = Math.min((1 - lifeT) * 5, 1);
+    const alpha = Math.min(fadeIn, fadeOut) * 0.25;
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = currentAtmosphere.accent;
+    ctx.beginPath(); ctx.arc(ap.x, ap.y, ap.size, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
 
   for (const t of towers) {
     const sel = t === selectedPlacedTower;
@@ -1181,13 +1321,13 @@ function draw() {
     ctx.fillStyle = '#0a0c10';
     ctx.fillRect(0, H * 0.35, W, H * 0.3);
     ctx.globalAlpha = alpha;
-    ctx.fillStyle = '#ff9f43';
+    ctx.fillStyle = currentAtmosphere.notifColor;
     ctx.font = `bold ${Math.max(16, TILE * 0.7)}px Orbitron, sans-serif`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(`LEVEL ${ms.level}`, W / 2, H * 0.44);
+    ctx.fillText(`LEVEL ${ms.level} — ${ms.palName}`, W / 2, H * 0.44);
     ctx.fillStyle = '#8899aa';
     ctx.font = `${Math.max(11, TILE * 0.38)}px 'Share Tech Mono', monospace`;
-    ctx.fillText(`+${ms.bonus}g`, W / 2, H * 0.54);
+    ctx.fillText(`+${ms.bonus}g  +3\u2665`, W / 2, H * 0.54);
     ctx.restore();
   }
 
@@ -1254,6 +1394,8 @@ function draw() {
 
     ctx.globalAlpha = 1;
   }
+
+  ctx.restore();
 }
 
 window.addEventListener('resize', resize);
