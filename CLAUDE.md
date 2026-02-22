@@ -58,4 +58,4 @@ HTML5 canvas tower defense game split across 3 files. No build tools, no depende
 - Canvas redraws every frame via `requestAnimationFrame`
 - Colors use hex strings; tower/enemy types have distinct color identities
 - UI buttons wired up via `onclick` attributes and `querySelectorAll` in init
-- No sell/upgrade mechanic for towers — placement is permanent
+- Towers upgradeable to level 3 by tapping; upgrade cost is 50% of base placement cost

@@ -6,7 +6,7 @@ TAWER is an endless tower defense game. Place towers along the path to destroy w
 
 ### Getting Started
 
-- You start with **300 gold** and **30 lives**
+- You start with **300 gold** and **10 lives**
 - A random map is selected each game
 - Waves auto-start by default (AUTO mode)
 - Click **START** to begin the first wave
@@ -18,12 +18,13 @@ TAWER is an endless tower defense game. Place towers along the path to destroy w
 3. Click/tap a **grass tile** to place the tower
 4. Tower buttons gray out when you can't afford them
 
-Towers cannot be sold, upgraded, or moved once placed.
+### Upgrading Towers
 
-### Selecting Placed Towers
-
-- Tap a placed tower to highlight it and see its range
-- Tap again to deselect
+- Tap a placed tower to select it — its range ring is shown
+- If upgradeable (level < 3), the upgrade cost is displayed above the tower
+- Tap again to upgrade (costs **50% of the tower's base price** per level)
+- Towers can reach **level 3** (MAX), gaining +25% damage, +10% range, and 10% faster fire rate per level
+- Tap a selected tower again to deselect
 
 ### Controls
 
@@ -31,10 +32,10 @@ Towers cannot be sold, upgraded, or moved once placed.
 |---------|--------|
 | Click/tap tower button | Select tower type to place |
 | Click/tap grass tile | Place selected tower |
-| Click/tap placed tower | Show its range ring |
+| Click/tap placed tower | Select/upgrade tower |
 | **START** | Begin next wave (when not in AUTO) |
 | **AUTO / MANUAL** | Toggle automatic wave progression |
-| **1X / 2X / 3X** | Cycle game speed |
+| **1X / 2X / 3X / 4X** | Cycle game speed |
 
 Touch controls are fully supported on mobile.
 
@@ -95,7 +96,7 @@ Enemy stats increase every wave:
 | HP (base) | 15 | 15 + wave x 10 + wave^1.6 |
 | Speed (base) | 0.7 | 0.8 + wave x 0.04 (capped at 1.2) |
 | Count | 3 | 3 + floor(wave x 1.5 + wave^0.8) |
-| Kill Reward | 8g | 8 + floor(wave x 0.8) |
+| Kill Reward (base) | ~4g | ~4g (scaled by enemy type multiplier) |
 
 ### Enemy Introduction Schedule
 
@@ -119,8 +120,8 @@ Enemy types unlock progressively and cycle through the available pool:
 Every **10 waves**, you level up:
 
 - All towers are **kept** — nothing is destroyed
-- You receive a gold bonus: **100 + level x 25** gold
-- You gain **+3 lives** (capped at 30)
+- You receive a gold bonus: **60 + level x 15** gold
+- You gain **+3 lives** (capped at 10)
 - The atmosphere shifts to a new color palette
 
 ---
@@ -132,18 +133,18 @@ Every **10 waves**, you level up:
 | Source | Amount |
 |--------|--------|
 | Killing enemies | Varies by type and wave (see enemy table) |
-| Wave completion bonus | 15 + wave x 2 |
-| Level-up bonus | 100 + level x 25 |
+| Wave completion bonus | 10 + floor(wave x 1.5) |
+| Level-up bonus | 60 + level x 15 |
 
 ### Spending Gold
 
-Gold is only spent on placing towers. There is no sell or upgrade system — choose placements carefully.
+Gold is spent on placing and upgrading towers. Upgrades cost 50% of the tower's base price.
 
 ---
 
 ## Scoring
 
-- Each enemy killed grants: **enemy reward x 10** score points
+- Each enemy killed grants score equal to its gold reward
 - Score is displayed in the top HUD
 - Your final score is shown on the game over screen along with the wave reached
 
@@ -151,7 +152,7 @@ Gold is only spent on placing towers. There is no sell or upgrade system — cho
 
 ## Lives
 
-- You start with **30 lives**
+- You start with **10 lives**
 - Each enemy that reaches the exit costs **1 life**
 - When lives hit **0**, the game is over
 - The game over screen shows "DEFEATED" with your score and wave number
@@ -166,6 +167,7 @@ Cycle through speed modes by pressing the speed button:
 - **1X** — Normal speed
 - **2X** — Double speed
 - **3X** — Triple speed
+- **4X** — Quadruple speed
 
 Affects all movement, firing, and spawning. Useful for speeding through early waves.
 
@@ -178,5 +180,6 @@ Affects all movement, firing, and spawning. Useful for speeding through early wa
 3. **Place FROST before damage towers** — Enemies hit the slow first, then crawl through your kill zone
 4. **Save for SNIPERS before boss waves** (5, 10, 15...) — Their high damage melts bosses
 5. **Use CANNONS against swarms** (wave 7+) — Splash damage handles groups efficiently
-6. **Level-ups are free power** — Every 10 waves you get bonus gold, +3 lives, and keep all towers
-7. **Cover chokepoints** — Place towers where the path turns so enemies spend more time in range
+6. **Upgrade your key towers** — Upgrades cost only half the base price and boost damage, range, and fire rate
+7. **Level-ups are free power** — Every 10 waves you get bonus gold, +3 lives, and keep all towers
+8. **Cover chokepoints** — Place towers where the path turns so enemies spend more time in range

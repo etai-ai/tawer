@@ -82,7 +82,7 @@ function saveBestScore(world, s) { const b = loadBestScores(); if (!b[world] || 
 const TOWER_DEFS = {
   gun:    { cost: 50,  range: 110, damage: 12, rate: 450,  color: '#00ff88', bullet: '#00ff88', bulletSpeed: 6, splash: 0 },
   cannon: { cost: 100, range: 95,  damage: 40, rate: 1100, color: '#ff6b35', bullet: '#ff6b35', bulletSpeed: 4, splash: 35 },
-  sniper: { cost: 150, range: 220, damage: 65, rate: 1800, color: '#a55eea', bullet: '#a55eea', bulletSpeed: 10, splash: 0 },
+  sniper: { cost: 150, range: 250, damage: 75, rate: 1800, color: '#a55eea', bullet: '#a55eea', bulletSpeed: 10, splash: 0 },
   frost:  { cost: 75,  range: 110, damage: 5,  rate: 350,  color: '#00d2ff', bullet: '#00d2ff', bulletSpeed: 5, splash: 0, slow: 0.4 },
 };
 
