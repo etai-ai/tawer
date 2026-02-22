@@ -413,7 +413,7 @@ function handleTap(e) {
   const existing = towers.find(t => t.col === col && t.row === row);
   if (existing) {
     const baseDef = TOWER_DEFS[existing.type];
-    const upgradeCost = baseDef.cost;
+    const upgradeCost = Math.floor(baseDef.cost * 0.5);
     if (existing.level < 3 && gold >= upgradeCost) {
       gold -= upgradeCost;
       existing.level++;

@@ -342,7 +342,7 @@ function draw() {
 
     // Upgrade cost label when selected and upgradeable
     if (sel && lvl < 3) {
-      const cost = TOWER_DEFS[t.type].cost;
+      const cost = Math.floor(TOWER_DEFS[t.type].cost * 0.5);
       ctx.fillStyle = gold >= cost ? '#ffd700' : '#ff4444';
       ctx.font = `bold ${Math.round(TILE*0.28)}px Share Tech Mono`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
