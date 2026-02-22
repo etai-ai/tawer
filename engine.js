@@ -46,7 +46,7 @@ function scatterRocks() {
   for (let r = 0; r < MAP_ROWS; r++)
     for (let c = 0; c < MAP_COLS; c++)
       if (mapData[r][c] === 0) grass.push({ r, c });
-  const count = Math.floor(grass.length * 0.12);
+  const count = Math.floor(grass.length * BALANCE.rockDensity);
   for (let i = grass.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [grass[i], grass[j]] = [grass[j], grass[i]];
@@ -133,7 +133,7 @@ function buildPath() {
 }
 
 // --- STATE ---
-let gold = 300, lives = 10, waveNum = 0, score = 0, level = 1;
+let gold = BALANCE.startGold, lives = BALANCE.startLives, waveNum = 0, score = 0, level = 1;
 let towers = [], enemies = [], bullets = [], particles = [], placeEffects = [];
 let floatingTexts = []; // {x, y, text, color, life, maxLife, vy}
 let screenShake = { x: 0, y: 0, intensity: 0, decay: 0 };
@@ -413,14 +413,14 @@ function handleTap(e) {
   const existing = towers.find(t => t.col === col && t.row === row);
   if (existing) {
     const baseDef = TOWER_DEFS[existing.type];
-    const upgradeCost = Math.floor(baseDef.cost * 0.5);
-    if (existing.level < 3 && gold >= upgradeCost) {
+    const upgradeCost = Math.floor(baseDef.cost * BALANCE.upgradeCostRatio);
+    if (existing.level < BALANCE.maxTowerLevel && gold >= upgradeCost) {
       gold -= upgradeCost;
       existing.level++;
       SFX.upgrade();
-      existing.damage = baseDef.damage * (1 + 0.25 * (existing.level - 1));
-      existing.range = baseDef.range * (TILE / 40) * (1 + 0.10 * (existing.level - 1));
-      existing.rate = baseDef.rate * Math.pow(0.9, existing.level - 1);
+      existing.damage = baseDef.damage * (1 + BALANCE.upgradeDamageBonus * (existing.level - 1));
+      existing.range = baseDef.range * (TILE / 40) * (1 + BALANCE.upgradeRangeBonus * (existing.level - 1));
+      existing.rate = baseDef.rate * Math.pow(BALANCE.upgradeRateMultiplier, existing.level - 1);
       // Upgrade VFX
       placeEffects.push({ x: existing.x, y: existing.y, life: 400, maxLife: 400, color: baseDef.color, range: existing.range });
       for (let i = 0; i < 8; i++) {
@@ -682,10 +682,10 @@ function startWave() {
   spawnPortal.maxLife = 3000 + waveNum * 200;
   spawnPortal.life = spawnPortal.maxLife;
 
-  const baseCount = waveNum === 1 ? 3 : Math.floor((3 + Math.floor(waveNum * 1.5 + Math.pow(waveNum, 0.8))) * 0.846);
-  const hp = waveNum === 1 ? 15 : 15 + waveNum * 10 + Math.pow(waveNum, 1.6 + Math.min(waveNum * 0.02, 0.4));
-  const baseSpeed = (waveNum === 1 ? 0.7 : 0.8 + Math.min(waveNum * 0.04, 1.6)) * (TILE / 40);
-  const reward = 3.5 * 1.113;
+  const baseCount = waveNum === 1 ? BALANCE.wave1Count : Math.floor((BALANCE.countBase + Math.floor(waveNum * BALANCE.countLinear + Math.pow(waveNum, BALANCE.countExponent))) * BALANCE.countMultiplier);
+  const hp = waveNum === 1 ? BALANCE.wave1Hp : BALANCE.hpBase + waveNum * BALANCE.hpLinear + Math.pow(waveNum, BALANCE.hpExponentBase + Math.min(waveNum * BALANCE.hpExponentRamp, BALANCE.hpExponentCap));
+  const baseSpeed = (waveNum === 1 ? BALANCE.wave1Speed : (BALANCE.speedBase + Math.min(waveNum * BALANCE.speedScaling, BALANCE.speedCap)) * BALANCE.speedMultiplier) * (TILE / 40);
+  const reward = BALANCE.rewardBase * BALANCE.rewardMultiplier;
 
   spawnQueue = [];
 
@@ -720,10 +720,10 @@ function getWaveComposition(wave, count) {
   for (let i = 0; i < count; i++) {
     comp.push({ type: types[i % types.length] });
   }
-  // Boss every 5 waves
-  if (wave % 5 === 0) comp.push({ type: 'boss' });
-  // Double boss every 15 waves
-  if (wave % 15 === 0) comp.push({ type: 'boss' });
+  // Boss every N waves
+  if (wave % BALANCE.bossEvery === 0) comp.push({ type: 'boss' });
+  // Double boss every N waves
+  if (wave % BALANCE.doubleBossEvery === 0) comp.push({ type: 'boss' });
   return comp;
 }
 
@@ -739,7 +739,7 @@ function update(dt, ts) {
     spawnTimer -= dt;
     if (spawnTimer <= 0) {
       spawnEnemy(spawnQueue.shift());
-      spawnTimer = Math.max(300, 600 - waveNum * 12);
+      spawnTimer = Math.max(BALANCE.spawnIntervalMin, BALANCE.spawnInterval - waveNum * BALANCE.spawnIntervalScaling);
       if (spawnQueue.length === 0) waveSpawning = false;
     }
   }
@@ -750,7 +750,7 @@ function update(dt, ts) {
     if (!target) { e.alive = false; lives--; SFX.leak(); updateHUD(); if (lives <= 0) endGame(); continue; }
     const dx = target.x - e.x, dy = target.y - e.y;
     const dist = Math.hypot(dx, dy);
-    const spd = (e.slowTimer > 0 ? e.speed * 0.4 : e.speed) * gameSpeed;
+    const spd = (e.slowTimer > 0 ? e.speed * BALANCE.slowFactor : e.speed) * gameSpeed;
     if (dist < spd * 2) e.pathIdx++;
     else { e.x += (dx / dist) * spd; e.y += (dy / dist) * spd; }
     if (e.slowTimer > 0) e.slowTimer -= dt;
@@ -841,7 +841,7 @@ function update(dt, ts) {
           // Cannon splash — shockwave ring + more particles
           for (const e of enemies)
             if (e !== b.target && e.alive && Math.hypot(e.x - b.target.x, e.y - b.target.y) < b.splash)
-              damageEnemy(e, b.damage * 0.5, 0);
+              damageEnemy(e, b.damage * BALANCE.splashDamageRatio, 0);
           // Shockwave ring effect
           placeEffects.push({ x: tx, y: ty, life: 350, maxLife: 350, color: '#ff8833', range: b.splash * 1.2 });
           // Lots of particles
@@ -935,16 +935,16 @@ function update(dt, ts) {
 
   if (waveActive && !waveSpawning && spawnQueue.length === 0 && enemies.length === 0) {
     waveActive = false;
-    gold += 10 + Math.floor(waveNum * 1.5);
+    gold += BALANCE.waveGoldBase + Math.floor(waveNum * BALANCE.waveGoldScaling);
     SFX.waveComplete();
     updateHUD();
     document.getElementById('start-btn').disabled = false;
     // Destructible tile after boss waves
-    if (waveNum % 5 === 0 && waveNum > 0) {
+    if (waveNum % BALANCE.bossEvery === 0 && waveNum > 0) {
       tryDestructibleTile();
     }
     // Level up every 10 waves
-    if (waveNum > 0 && waveNum % 10 === 0) {
+    if (waveNum > 0 && waveNum % BALANCE.levelUpWaves === 0) {
       levelUp();
     } else if (autoMode) {
       startWave();
@@ -996,9 +996,9 @@ function levelUp() {
   level++;
   SFX.levelUp();
   const palIdx = Math.min(level - 1, ATMOSPHERE_PALETTES.length - 1);
-  const bonus = 60 + level * 15;
+  const bonus = BALANCE.levelUpGoldBase + level * BALANCE.levelUpGoldScaling;
   gold += bonus;
-  lives = Math.min(lives + 3, 10);
+  lives = Math.min(lives + BALANCE.livesPerLevelUp, BALANCE.maxLives);
   // Trigger atmosphere transition
   fromAtmosphere = copyPalette(currentAtmosphere);
   targetAtmosphere = copyPalette(ATMOSPHERE_PALETTES[palIdx]);
@@ -1018,7 +1018,7 @@ function levelUp() {
 
 function damageEnemy(e, dmg, slow) {
   e.hp -= dmg;
-  if (slow > 0) e.slowTimer = 1500;
+  if (slow > 0) e.slowTimer = BALANCE.slowDuration;
 
   // Hit flash
   e.hitFlash = 1;
@@ -1116,7 +1116,7 @@ function endGame() {
 
 document.getElementById('restart-btn').addEventListener('click', e => {
   e.preventDefault();
-  gold = 300; lives = 10; waveNum = 0; score = 0; level = 1;
+  gold = BALANCE.startGold; lives = BALANCE.startLives; waveNum = 0; score = 0; level = 1;
   towers = []; enemies = []; bullets = []; particles = []; placeEffects = [];
   floatingTexts = []; lightSources = []; trailParticles = [];
   screenShake = { x: 0, y: 0, intensity: 0, decay: 0 };

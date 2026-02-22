@@ -341,14 +341,14 @@ function draw() {
     }
 
     // Upgrade cost label when selected and upgradeable
-    if (sel && lvl < 3) {
-      const cost = Math.floor(TOWER_DEFS[t.type].cost * 0.5);
+    if (sel && lvl < BALANCE.maxTowerLevel) {
+      const cost = Math.floor(TOWER_DEFS[t.type].cost * BALANCE.upgradeCostRatio);
       ctx.fillStyle = gold >= cost ? '#ffd700' : '#ff4444';
       ctx.font = `bold ${Math.round(TILE*0.28)}px Share Tech Mono`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
       ctx.fillText(`\u2191 ${cost}g`, t.x, t.y - baseR - TILE * 0.08);
     }
-    if (sel && lvl >= 3) {
+    if (sel && lvl >= BALANCE.maxTowerLevel) {
       ctx.fillStyle = '#88ffaa';
       ctx.font = `bold ${Math.round(TILE*0.24)}px Share Tech Mono`;
       ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';

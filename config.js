@@ -1,6 +1,70 @@
 // --- DATA DEFINITIONS & PURE UTILITIES ---
 // No DOM access, no dependencies on other files.
 
+const BALANCE = {
+  startGold: 300,
+  startLives: 10,
+  maxLives: 10,
+  livesPerLevelUp: 3,
+
+  // Wave spawning
+  wave1Count: 3,
+  countBase: 3,
+  countLinear: 1.5,
+  countExponent: 0.8,
+  countMultiplier: 0.846,
+  spawnInterval: 600,
+  spawnIntervalMin: 300,
+  spawnIntervalScaling: 12,
+
+  // Enemy HP
+  wave1Hp: 15,
+  hpBase: 15,
+  hpLinear: 10,
+  hpExponentBase: 1.6,
+  hpExponentRamp: 0.02,
+  hpExponentCap: 0.4,
+
+  // Enemy speed
+  wave1Speed: 0.665,
+  speedBase: 0.8,
+  speedScaling: 0.04,
+  speedCap: 1.6,
+  speedMultiplier: 0.95,
+
+  // Kill reward
+  rewardBase: 3.675,
+  rewardMultiplier: 1.169,
+
+  // Wave completion
+  waveGoldBase: 10.5,
+  waveGoldScaling: 1.575,
+
+  // Level-up
+  levelUpWaves: 10,
+  levelUpGoldBase: 63,
+  levelUpGoldScaling: 15.75,
+
+  // Combat
+  slowFactor: 0.4,
+  slowDuration: 1500,
+  splashDamageRatio: 0.5,
+
+  // Upgrade
+  upgradeCostRatio: 0.5,
+  maxTowerLevel: 3,
+  upgradeDamageBonus: 0.25,
+  upgradeRangeBonus: 0.10,
+  upgradeRateMultiplier: 0.9,
+
+  // Map
+  rockDensity: 0.12,
+
+  // Boss schedule
+  bossEvery: 5,
+  doubleBossEvery: 15,
+};
+
 const WORLDS = [
   { name: 'SERPENT', data: [
     [2,1,1,1,1,1,1,1,1,0],
