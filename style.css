@@ -162,9 +162,9 @@ h1 {
 .tower-btn[data-type="cannon"] { --tc: #ff6b35; --tb: #261308; --tg: rgba(255,107,53,0.2); }
 .tower-btn[data-type="sniper"] { --tc: #a55eea; --tb: #1a0d26; --tg: rgba(165,94,234,0.2); }
 .tower-btn[data-type="frost"]  { --tc: #00d2ff; --tb: #0d1e26; --tg: rgba(0,210,255,0.2); }
-.tower-btn .cost { color: #ffdd44; font-size: 14px; font-weight: 700; }
-.tower-btn .icon-canvas { width: 36px; height: 36px; display: block; }
-.tower-btn .tname { font-size: 13px; letter-spacing: 1px; color: var(--tc, #ddeeff); font-weight: 700; }
+.tower-btn .cost { color: #ffdd44; font-size: 16px; font-weight: 700; }
+.tower-btn .icon-canvas { width: 44px; height: 44px; display: block; }
+.tower-btn .tname { font-size: 15px; letter-spacing: 1px; color: var(--tc, #ddeeff); font-weight: 700; }
 
 #action-row {
   display: flex;
@@ -197,7 +197,7 @@ h1 {
   color: #c8d6e5;
   font-family: 'Orbitron', sans-serif;
   font-weight: 700;
-  font-size: 11px;
+  font-size: 15px;
   letter-spacing: 1px;
   cursor: pointer;
   transition: all 0.15s;
@@ -206,6 +206,7 @@ h1 {
   text-align: center;
 }
 .action-btn:active { transform: scale(0.95); }
+#sound-btn { font-size: 22px; line-height: 1; }
 .action-btn.active { border-color: #00d2ff; color: #00d2ff; background: #0d1a25; box-shadow: 0 0 10px rgba(0, 210, 255, 0.15); }
 
 /* --- GAME OVER --- */
@@ -303,10 +304,11 @@ h1 {
   .hud-row { gap: 8px; }
   .tower-btn { min-height: 62px; }
   .tower-btn .icon { font-size: 26px; }
-  .tower-btn .tname { font-size: 12px; }
-  .tower-btn .cost { font-size: 12px; }
+  .tower-btn .icon-canvas { width: 38px; height: 38px; }
+  .tower-btn .tname { font-size: 13px; }
+  .tower-btn .cost { font-size: 14px; }
   #start-btn { font-size: 15px; letter-spacing: 3px; }
-  .action-btn { font-size: 10px; }
+  .action-btn { font-size: 13px; }
   #controls { padding: 8px; gap: 8px; }
   #tower-bar { gap: 5px; }
 }
@@ -321,11 +323,11 @@ h1 {
   .hud-label { font-size: 12px; }
   .hud-value { font-size: 22px; }
   .tower-btn { padding: 14px 8px; min-height: 80px; }
-  .tower-btn .icon { font-size: 34px; }
-  .tower-btn .tname { font-size: 14px; }
-  .tower-btn .cost { font-size: 14px; }
+  .tower-btn .icon-canvas { width: 50px; height: 50px; }
+  .tower-btn .tname { font-size: 16px; }
+  .tower-btn .cost { font-size: 16px; }
   #start-btn { font-size: 20px; padding: 20px; }
-  .action-btn { font-size: 13px; }
+  .action-btn { font-size: 16px; }
   #controls { padding: 12px 18px; }
   #game-over-overlay h2 { font-size: 42px; }
   #restart-btn { font-size: 18px; padding: 18px 50px; }
@@ -340,11 +342,11 @@ h1 {
   .hud-value { font-size: 14px; }
   .hud-label { font-size: 9px; }
   .tower-btn { min-height: 50px; padding: 4px 4px; gap: 1px; }
-  .tower-btn .icon { font-size: 22px; }
+  .tower-btn .icon-canvas { width: 30px; height: 30px; }
   .tower-btn .tname { font-size: 11px; }
   .tower-btn .cost { font-size: 11px; }
   #start-btn { padding: 10px 12px; font-size: 14px; }
-  .action-btn { font-size: 10px; padding: 8px 0; }
+  .action-btn { font-size: 12px; padding: 8px 0; }
   #controls { padding: 6px 10px; gap: 6px; }
   #tower-bar { gap: 5px; }
 }
