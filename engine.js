@@ -682,10 +682,10 @@ function startWave() {
   spawnPortal.maxLife = 3000 + waveNum * 200;
   spawnPortal.life = spawnPortal.maxLife;
 
-  const baseCount = waveNum === 1 ? 3 : Math.floor((3 + Math.floor(waveNum * 1.5 + Math.pow(waveNum, 0.8))) * 0.9);
+  const baseCount = waveNum === 1 ? 3 : Math.floor((3 + Math.floor(waveNum * 1.5 + Math.pow(waveNum, 0.8))) * 0.846);
   const hp = waveNum === 1 ? 15 : 15 + waveNum * 10 + Math.pow(waveNum, 1.6 + Math.min(waveNum * 0.02, 0.4));
   const baseSpeed = (waveNum === 1 ? 0.7 : 0.8 + Math.min(waveNum * 0.04, 1.6)) * (TILE / 40);
-  const reward = 3.5 * 1.05;
+  const reward = 3.5 * 1.113;
 
   spawnQueue = [];
 
