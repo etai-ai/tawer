@@ -30,7 +30,7 @@ const BALANCE = {
   speedBase: 0.76,
   speedScaling: 0.038,
   speedCap: 1.52,
-  speedMultiplier: 0.9025,
+  speedMultiplier: 0.857375,
 
   // Kill reward
   rewardBase: 3.675,

@@ -294,6 +294,112 @@ h1 {
 }
 #restart-btn:active { border-color: #00ff88; color: #00ff88; }
 
+/* --- RECORDS MODAL --- */
+#records-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 12, 16, 0.92);
+  z-index: 50;
+  align-items: center;
+  justify-content: center;
+}
+#records-overlay.show { display: flex; }
+
+#records-modal {
+  background: #111822;
+  border: 2px solid #1e2d3d;
+  border-radius: 14px;
+  padding: 28px 24px 20px;
+  min-width: 260px;
+  max-width: 340px;
+  width: 85%;
+  text-align: center;
+}
+
+#records-modal h2 {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 22px;
+  color: #ffd700;
+  letter-spacing: 4px;
+  margin-bottom: 20px;
+  text-shadow: 0 0 12px rgba(255, 215, 0, 0.3);
+}
+
+#records-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+
+.record-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 14px;
+  background: #0d1118;
+  border: 1px solid #1e2a3a;
+  border-radius: 8px;
+}
+
+.record-world {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 2px;
+  color: #00d2ff;
+}
+
+.record-score {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  color: #ffd700;
+}
+
+.record-score.empty {
+  color: #334455;
+  font-size: 13px;
+}
+
+#records-actions {
+  display: flex;
+  gap: 10px;
+}
+
+#close-records-btn {
+  flex: 2;
+  background: #1a2233;
+  border: 2px solid #334455;
+  border-radius: 8px;
+  padding: 12px 0;
+  color: #c8d6e5;
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 2px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+#close-records-btn:active { border-color: #00ff88; color: #00ff88; }
+
+#clear-records-btn {
+  flex: 1;
+  background: #1a1215;
+  border: 2px solid #3a2020;
+  border-radius: 8px;
+  padding: 12px 0;
+  color: #ff5a6a;
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 1px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+#clear-records-btn:active { border-color: #ff4444; background: #2a1218; }
+
 /* Small phones (iPhone SE, etc.) */
 @media (max-width: 374px) {
   h1 { font-size: 18px; letter-spacing: 3px; }

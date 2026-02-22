@@ -87,7 +87,7 @@ function resize() {
   GRID_OY = Math.floor((ch - H) / 2);
 
   buildPath();
-
+  rebuildExtraSpawnPaths();
   for (const t of towers) {
     t.x = t.col * TILE + TILE / 2;
     t.y = t.row * TILE + TILE / 2;
@@ -115,7 +115,7 @@ function buildPath() {
     for (const [dr, dc] of [[0,1],[0,-1],[1,0],[-1,0]]) {
       const nr = cur.r + dr, nc = cur.c + dc;
       const key = `${nr},${nc}`;
-      if (nr >= 0 && nr < MAP_ROWS && nc >= 0 && nc < MAP_COLS && !visited.has(key) && ((mapData[nr][nc] >= 1 && mapData[nr][nc] <= 3) || mapData[nr][nc] === 5)) {
+      if (nr >= 0 && nr < MAP_ROWS && nc >= 0 && nc < MAP_COLS && !visited.has(key) && (mapData[nr][nc] >= 1 && mapData[nr][nc] <= 3)) {
         visited.add(key);
         parent[key] = cur;
         queue.push({ r: nr, c: nc });
@@ -142,9 +142,8 @@ let trailParticles = []; // lighter-weight particles for bullet trails
 let spawnPortal = { active: false, life: 0, maxLife: 0 };
 let mapShiftNotification = null;
 let mapShiftDelay = 0;
-let crackedTiles = []; // {r, c, age} — tiles destroyed after boss waves
-let shiftAnimations = []; // visual effects for path shifts
-let destroyedTowerEffects = []; // VFX for towers removed by path shifts
+let extraSpawnPoints = []; // [{entryR, entryC, path:[], portalActive, portalLife, portalMaxLife}]
+let spawnPointNotification = null; // notification for new spawn point
 let selectedTower = 'gun';
 let selectedPlacedTower = null;
 let waveActive = false, waveSpawning = false, spawnQueue = [], spawnTimer = 0;
@@ -371,6 +370,56 @@ document.getElementById('sound-btn').addEventListener('click', e => {
   btn.classList.toggle('active', soundEnabled);
 });
 
+// --- RECORDS MODAL ---
+function openRecords() {
+  const overlay = document.getElementById('records-overlay');
+  const list = document.getElementById('records-list');
+  const scores = loadBestScores();
+  list.innerHTML = '';
+  for (const w of WORLDS) {
+    const row = document.createElement('div');
+    row.className = 'record-row';
+    const name = document.createElement('span');
+    name.className = 'record-world';
+    name.textContent = w.name;
+    const sc = document.createElement('span');
+    if (scores[w.name]) {
+      sc.className = 'record-score';
+      sc.textContent = scores[w.name];
+    } else {
+      sc.className = 'record-score empty';
+      sc.textContent = '---';
+    }
+    row.appendChild(name);
+    row.appendChild(sc);
+    list.appendChild(row);
+  }
+  overlay.classList.add('show');
+}
+
+document.querySelector('#top-bar h1').addEventListener('click', e => {
+  e.preventDefault();
+  openRecords();
+});
+document.querySelector('#top-bar h1').style.cursor = 'pointer';
+
+document.getElementById('close-records-btn').addEventListener('click', e => {
+  e.preventDefault();
+  document.getElementById('records-overlay').classList.remove('show');
+});
+
+document.getElementById('records-overlay').addEventListener('click', e => {
+  if (e.target === e.currentTarget) {
+    document.getElementById('records-overlay').classList.remove('show');
+  }
+});
+
+document.getElementById('clear-records-btn').addEventListener('click', e => {
+  e.preventDefault();
+  localStorage.removeItem('tawer_best');
+  openRecords(); // refresh the list
+});
+
 // --- HOVER / TOUCH PREVIEW STATE ---
 let hoverCol = -1, hoverRow = -1;
 
@@ -451,6 +500,9 @@ function handleTap(e) {
     level: 1,
     recoil: 0,
     muzzleFlash: 0,
+    scannerAngle: 0,
+    smokeTimer: 0,
+    crystalPhase: Math.random() * Math.PI * 2,
     ...def,
     range: def.range * (TILE / 40),
   });
@@ -467,205 +519,138 @@ canvas.addEventListener('touchstart', handleTap, { passive: false });
 canvas.addEventListener('click', handleTap);
 document.addEventListener('gesturestart', e => e.preventDefault());
 
-// --- DESTRUCTIBLE TILES: after boss waves, crack open shortcut tiles ---
-function findDestructibleTile() {
-  // Find a path tile (value 1) that, if removed, would create a shortcut
-  // Strategy: find path tiles adjacent to >=2 non-adjacent path segments
-  const pathTiles = [];
+// --- EXTRA SPAWN POINTS: from level 2+, enemies enter from additional map edges ---
+
+function buildPathFromEdge(startR, startC) {
+  // Find adjacent path tile (the junction where this spawn merges onto the trail)
+  let adjR = -1, adjC = -1;
+  for (const [dr, dc] of [[0,1],[0,-1],[1,0],[-1,0]]) {
+    const nr = startR + dr, nc = startC + dc;
+    if (nr >= 0 && nr < MAP_ROWS && nc >= 0 && nc < MAP_COLS) {
+      const v = mapData[nr][nc];
+      if (v >= 1 && v <= 3) { adjR = nr; adjC = nc; break; }
+    }
+  }
+  if (adjR < 0) return null;
+
+  // Find exit tile
+  let exitR = -1, exitC = -1;
   for (let r = 0; r < MAP_ROWS; r++)
     for (let c = 0; c < MAP_COLS; c++)
-      if (mapData[r][c] === 1) pathTiles.push({ r, c });
+      if (mapData[r][c] === 3) { exitR = r; exitC = c; }
+  if (exitR < 0) return null;
 
-  // For each grass tile (0), check if converting it to path creates a shortcut
-  const candidates = [];
-  for (let r = 1; r < MAP_ROWS - 1; r++) {
-    for (let c = 1; c < MAP_COLS - 1; c++) {
-      if (mapData[r][c] !== 0) continue;
-      // Check if there's a tower here — skip if so
-      if (towers.some(t => t.row === r && t.col === c)) continue;
-      // Count adjacent path tiles
-      let adjPath = 0;
-      const adjCoords = [];
-      for (const [dr, dc] of [[0,1],[0,-1],[1,0],[-1,0]]) {
-        const nr = r + dr, nc = c + dc;
-        if (nr >= 0 && nr < MAP_ROWS && nc >= 0 && nc < MAP_COLS && mapData[nr][nc] >= 1 && mapData[nr][nc] <= 3) {
-          adjPath++;
-          adjCoords.push({ r: nr, c: nc });
-        }
-      }
-      // Must be adjacent to exactly 2 path tiles that aren't neighbors of each other
-      // (this ensures it's a shortcut, not just widening the path)
-      if (adjPath === 2) {
-        const [a, b] = adjCoords;
-        const dist = Math.abs(a.r - b.r) + Math.abs(a.c - b.c);
-        if (dist > 1) { // They're not adjacent — this would be a shortcut!
-          candidates.push({ r, c, dist });
-        }
-      }
-    }
-  }
-
-  if (candidates.length === 0) return null;
-  // Pick a random candidate, prefer bigger shortcuts
-  candidates.sort((a, b) => b.dist - a.dist);
-  const topN = Math.min(3, candidates.length);
-  return candidates[Math.floor(Math.random() * topN)];
-}
-
-function crackTile(r, c) {
-  mapData[r][c] = 5; // 5 = cracked/destroyed tile (now walkable)
-  crackedTiles.push({ r, c, age: 0 });
-  buildPath();
-  // VFX: crack explosion
-  const cx = c * TILE + TILE / 2;
-  const cy = r * TILE + TILE / 2;
-  shiftAnimations.push({ x: cx, y: cy, life: 1200, maxLife: 1200, type: 'crack' });
-  for (let i = 0; i < 12; i++) {
-    const a = Math.random() * Math.PI * 2;
-    const spd = 1 + Math.random() * 2.5;
-    particles.push({ x: cx, y: cy, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, life: 600, color: '#ff8844', size: TILE * 0.08 });
-  }
-  for (let i = 0; i < 8; i++) {
-    const a = Math.random() * Math.PI * 2;
-    const spd = 0.5 + Math.random() * 1.5;
-    particles.push({ x: cx, y: cy, vx: Math.cos(a) * spd, vy: Math.sin(a) * spd, life: 800, color: '#ffcc44', size: TILE * 0.06 });
-  }
-  SFX.crackTile();
-}
-
-function tryDestructibleTile() {
-  const tile = findDestructibleTile();
-  if (tile) {
-    // Delay the crack for dramatic effect
-    setTimeout(() => {
-      if (!gameOver) crackTile(tile.r, tile.c);
-    }, 800);
-  }
-}
-
-// --- PATH SHIFTING: on level-up, reroute a segment ---
-function findShiftableSegment() {
-  // Find a section of the path where we can add a detour:
-  // Look for a path tile with adjacent grass on one side, and another path tile
-  // reachable through that grass. We'll extend the path through the grass.
-  const candidates = [];
-
-  for (let r = 1; r < MAP_ROWS - 1; r++) {
-    for (let c = 1; c < MAP_COLS - 1; c++) {
-      if (mapData[r][c] !== 1) continue; // Must be regular path tile
-
-      // For each adjacent grass tile
-      for (const [dr, dc] of [[0,1],[0,-1],[1,0],[-1,0]]) {
-        const gr = r + dr, gc = c + dc;
-        if (gr < 1 || gr >= MAP_ROWS - 1 || gc < 1 || gc >= MAP_COLS - 1) continue;
-        if (mapData[gr][gc] !== 0) continue;
-        // Check if there's a tower on this grass tile
-        if (towers.some(t => t.row === gr && t.col === gc)) continue;
-
-        // From this grass tile, check if there's another path tile adjacent
-        // (that isn't the original tile)
-        for (const [dr2, dc2] of [[0,1],[0,-1],[1,0],[-1,0]]) {
-          const pr = gr + dr2, pc = gc + dc2;
-          if (pr === r && pc === c) continue; // Skip the tile we came from
-          if (pr < 0 || pr >= MAP_ROWS || pc < 0 || pc >= MAP_COLS) continue;
-          if (mapData[pr][pc] >= 1 && mapData[pr][pc] <= 3) {
-            // This would create a new connection through grass
-            candidates.push({ grassR: gr, grassC: gc, oldR: r, oldC: c });
-          }
-        }
-      }
-    }
-  }
-
-  if (candidates.length === 0) return null;
-  return candidates[Math.floor(Math.random() * candidates.length)];
-}
-
-function shiftPath() {
-  const shift = findShiftableSegment();
-  if (!shift) return;
-
-  // Convert the grass tile to a path tile
-  mapData[shift.grassR][shift.grassC] = 1;
-
-  // Optionally convert the old path tile to grass (making it buildable!)
-  // But only if it won't break connectivity
-  const oldVal = mapData[shift.oldR][shift.oldC];
-  mapData[shift.oldR][shift.oldC] = 0; // temporarily remove
-
-  // Check if path still works
-  const testPath = testBuildPath();
-  if (!testPath) {
-    // Revert — can't remove this tile
-    mapData[shift.oldR][shift.oldC] = oldVal;
-  } else {
-    // Check if any tower is on the new path tile
-    const towerIdx = towers.findIndex(t => t.row === shift.grassR && t.col === shift.grassC);
-    if (towerIdx >= 0) {
-      const t = towers[towerIdx];
-      // Destroy the tower with VFX
-      destroyedTowerEffects.push({
-        x: t.x, y: t.y, life: 1000, maxLife: 1000, color: TOWER_DEFS[t.type].color
-      });
-      for (let i = 0; i < 10; i++) {
-        const a = Math.random() * Math.PI * 2;
-        particles.push({ x: t.x, y: t.y, vx: Math.cos(a) * 2, vy: Math.sin(a) * 2, life: 600, color: '#ff4444', size: TILE * 0.07 });
-      }
-      towers.splice(towerIdx, 1);
-    }
-  }
-
-  // Rebuild the actual path
-  buildPath();
-
-  // VFX for the new path tile
-  const nx = shift.grassR !== undefined ? shift.grassC * TILE + TILE / 2 : 0;
-  const ny = shift.grassR !== undefined ? shift.grassR * TILE + TILE / 2 : 0;
-  shiftAnimations.push({ x: nx, y: ny, life: 1500, maxLife: 1500, type: 'shift' });
-  for (let i = 0; i < 10; i++) {
-    const a = Math.random() * Math.PI * 2;
-    particles.push({ x: nx, y: ny, vx: Math.cos(a) * 1.5, vy: Math.sin(a) * 1.5, life: 800, color: currentAtmosphere.accent, size: TILE * 0.06 });
-  }
-
-  // VFX for the removed old tile (if it was removed)
-  if (mapData[shift.oldR][shift.oldC] === 0) {
-    const ox = shift.oldC * TILE + TILE / 2;
-    const oy = shift.oldR * TILE + TILE / 2;
-    shiftAnimations.push({ x: ox, y: oy, life: 1500, maxLife: 1500, type: 'dissolve' });
-    for (let i = 0; i < 6; i++) {
-      const a = Math.random() * Math.PI * 2;
-      particles.push({ x: ox, y: oy, vx: Math.cos(a) * 1, vy: Math.sin(a) * 1, life: 600, color: '#667788', size: TILE * 0.05 });
-    }
-  }
-
-  SFX.pathShift();
-}
-
-function testBuildPath() {
-  let start = null;
-  for (let r = 0; r < MAP_ROWS; r++)
-    for (let c = 0; c < MAP_COLS; c++)
-      if (mapData[r][c] === 2) start = { r, c };
-
-  if (!start) return false;
+  // BFS from adjacent path tile to exit, traversing ONLY path tiles (1,2,3)
   const visited = new Set();
-  const queue = [start];
-  visited.add(`${start.r},${start.c}`);
+  const prev = new Map();
+  const jKey = `${adjR},${adjC}`;
+  visited.add(jKey);
+  const queue = [{ r: adjR, c: adjC }];
 
   while (queue.length) {
     const cur = queue.shift();
-    if (mapData[cur.r][cur.c] === 3) return true;
+    if (cur.r === exitR && cur.c === exitC) break;
     for (const [dr, dc] of [[0,1],[0,-1],[1,0],[-1,0]]) {
       const nr = cur.r + dr, nc = cur.c + dc;
       const key = `${nr},${nc}`;
-      if (nr >= 0 && nr < MAP_ROWS && nc >= 0 && nc < MAP_COLS && !visited.has(key) &&
-          ((mapData[nr][nc] >= 1 && mapData[nr][nc] <= 3) || mapData[nr][nc] === 5)) {
-        visited.add(key);
-        queue.push({ r: nr, c: nc });
+      if (nr >= 0 && nr < MAP_ROWS && nc >= 0 && nc < MAP_COLS && !visited.has(key)) {
+        const v = mapData[nr][nc];
+        if (v >= 1 && v <= 3) {
+          visited.add(key);
+          prev.set(key, cur);
+          queue.push({ r: nr, c: nc });
+        }
       }
     }
   }
-  return false;
+
+  const endKey = `${exitR},${exitC}`;
+  if (!prev.has(endKey) && !(adjR === exitR && adjC === exitC)) return null;
+
+  // Trace path from exit back to junction
+  const pts = [];
+  let cur = { r: exitR, c: exitC };
+  while (cur) {
+    pts.unshift({ x: cur.c * TILE + TILE / 2, y: cur.r * TILE + TILE / 2 });
+    const p = prev.get(`${cur.r},${cur.c}`);
+    cur = p || null;
+  }
+
+  // Prepend the edge entry point (spawn location)
+  pts.unshift({ x: startC * TILE + TILE / 2, y: startR * TILE + TILE / 2 });
+
+  return pts.length >= 3 ? pts : null;
+}
+
+function findExtraSpawnCandidates() {
+  const candidates = [];
+  for (let r = 0; r < MAP_ROWS; r++) {
+    for (let c = 0; c < MAP_COLS; c++) {
+      // Must be on the edge of the map
+      if (r !== 0 && r !== MAP_ROWS - 1 && c !== 0 && c !== MAP_COLS - 1) continue;
+      // Must not be an existing path/start/end tile
+      const v = mapData[r][c];
+      if (v >= 1 && v <= 3) continue;
+      // Must not overlap an existing extra spawn
+      if (extraSpawnPoints.some(esp => esp.entryR === r && esp.entryC === c)) continue;
+      // Must be directly adjacent to a path tile (so mobs step onto trail immediately)
+      let adjPath = false;
+      for (const [dr, dc] of [[0,1],[0,-1],[1,0],[-1,0]]) {
+        const nr = r + dr, nc = c + dc;
+        if (nr >= 0 && nr < MAP_ROWS && nc >= 0 && nc < MAP_COLS) {
+          const nv = mapData[nr][nc];
+          if (nv >= 1 && nv <= 3) { adjPath = true; break; }
+        }
+      }
+      if (adjPath) candidates.push({ r, c });
+    }
+  }
+  return candidates;
+}
+
+function addExtraSpawnPoint() {
+  const candidates = findExtraSpawnCandidates();
+  if (candidates.length === 0) return;
+
+  // Shuffle
+  for (let i = candidates.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+  }
+
+  for (const cand of candidates) {
+    const ePath = buildPathFromEdge(cand.r, cand.c);
+    if (ePath) {
+      extraSpawnPoints.push({
+        entryR: cand.r, entryC: cand.c,
+        path: ePath,
+        portalActive: false, portalLife: 0, portalMaxLife: 0,
+      });
+
+      // VFX: dramatic announcement
+      const ex = cand.c * TILE + TILE / 2;
+      const ey = cand.r * TILE + TILE / 2;
+      placeEffects.push({ x: ex, y: ey, life: 1500, maxLife: 1500, color: '#ff4444', range: TILE * 2.5 });
+      lightSources.push({ x: ex, y: ey, radius: TILE * 5, color: '#ff2244', life: 1200, maxLife: 1200 });
+      for (let i = 0; i < 20; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const spd = 1 + Math.random() * 2.5;
+        particles.push({ x: ex, y: ey, vx: Math.cos(a)*spd, vy: Math.sin(a)*spd, life: 700, color: i%2===0?'#ff4444':'#ff8844', size: TILE * 0.06 });
+      }
+      screenShake.intensity = Math.max(screenShake.intensity, 5);
+      screenShake.decay = Math.max(screenShake.decay, 400);
+      SFX.crackTile();
+      return;
+    }
+  }
+}
+
+function rebuildExtraSpawnPaths() {
+  // Rebuild extra spawn paths after resize (TILE changed)
+  for (const esp of extraSpawnPoints) {
+    const newPath = buildPathFromEdge(esp.entryR, esp.entryC);
+    if (newPath) esp.path = newPath;
+  }
 }
 
 // --- WAVES ---
@@ -730,7 +715,20 @@ function getWaveComposition(wave, count) {
 document.getElementById('start-btn').addEventListener('click', e => { e.preventDefault(); startWave(); });
 
 function spawnEnemy(t) {
-  enemies.push({ ...t, x: path[0].x, y: path[0].y, pathIdx: 0, alive: true, hitFlash: 0 });
+  // Decide which spawn point to use
+  // Main path always gets enemies; extra paths get a portion
+  let usePath = path;
+  if (extraSpawnPoints.length > 0 && Math.random() < 0.35 * Math.min(extraSpawnPoints.length, 3)) {
+    const esp = extraSpawnPoints[Math.floor(Math.random() * extraSpawnPoints.length)];
+    if (esp.path && esp.path.length >= 2) {
+      usePath = esp.path;
+      // Activate this spawn's portal
+      esp.portalActive = true;
+      esp.portalMaxLife = 2000;
+      esp.portalLife = esp.portalMaxLife;
+    }
+  }
+  enemies.push({ ...t, x: usePath[0].x, y: usePath[0].y, pathIdx: 0, alive: true, hitFlash: 0, usePath });
 }
 
 // --- UPDATE ---
@@ -746,7 +744,8 @@ function update(dt, ts) {
 
   for (const e of enemies) {
     if (!e.alive) continue;
-    const target = path[e.pathIdx + 1];
+    const ePath = e.usePath || path;
+    const target = ePath[e.pathIdx + 1];
     if (!target) { e.alive = false; lives--; SFX.leak(); updateHUD(); if (lives <= 0) endGame(); continue; }
     const dx = target.x - e.x, dy = target.y - e.y;
     const dist = Math.hypot(dx, dy);
@@ -760,6 +759,26 @@ function update(dt, ts) {
     // Decay recoil and muzzle flash
     if (t.recoil > 0) t.recoil = Math.max(0, t.recoil - dt * 0.008);
     if (t.muzzleFlash > 0) t.muzzleFlash = Math.max(0, t.muzzleFlash - dt * 0.01);
+
+    // Animated tower state
+    t.scannerAngle = (t.scannerAngle || 0) + dt * 0.003;
+    t.smokeTimer = (t.smokeTimer || 0) + dt;
+    t.crystalPhase = (t.crystalPhase || 0) + dt * 0.002;
+
+    // Cannon L3 idle smoke wisps
+    if (t.type === 'cannon' && (t.level || 1) >= 3 && t.smokeTimer > 3000) {
+      t.smokeTimer = 0;
+      const smokeX = t.x + Math.cos(t.angle) * TILE * 0.35;
+      const smokeY = t.y + Math.sin(t.angle) * TILE * 0.35;
+      for (let si = 0; si < 2; si++) {
+        trailParticles.push({
+          x: smokeX + (Math.random() - 0.5) * TILE * 0.1,
+          y: smokeY + (Math.random() - 0.5) * TILE * 0.1,
+          life: 800, maxLife: 800,
+          color: '#88888866', size: TILE * 0.05
+        });
+      }
+    }
 
     let closest = null, closestDist = Infinity;
     for (const e of enemies) {
@@ -929,9 +948,20 @@ function update(dt, ts) {
   bullets = bullets.filter(b => b.alive);
   particles = particles.filter(p => p.life > 0);
   placeEffects = placeEffects.filter(pe => pe.life > 0);
-  shiftAnimations = shiftAnimations.filter(sa => { sa.life -= dt; return sa.life > 0; });
-  destroyedTowerEffects = destroyedTowerEffects.filter(de => { de.life -= dt; return de.life > 0; });
-  for (const ct of crackedTiles) ct.age += dt;
+
+  // Extra spawn portals
+  for (const esp of extraSpawnPoints) {
+    if (esp.portalActive) {
+      esp.portalLife -= dt;
+      if (esp.portalLife <= 0) esp.portalActive = false;
+    }
+  }
+
+  // Spawn point notification
+  if (spawnPointNotification) {
+    spawnPointNotification.life -= dt;
+    if (spawnPointNotification.life <= 0) spawnPointNotification = null;
+  }
 
   if (waveActive && !waveSpawning && spawnQueue.length === 0 && enemies.length === 0) {
     waveActive = false;
@@ -939,10 +969,6 @@ function update(dt, ts) {
     SFX.waveComplete();
     updateHUD();
     document.getElementById('start-btn').disabled = false;
-    // Destructible tile after boss waves
-    if (waveNum % BALANCE.bossEvery === 0 && waveNum > 0) {
-      tryDestructibleTile();
-    }
     // Level up every 10 waves
     if (waveNum > 0 && waveNum % BALANCE.levelUpWaves === 0) {
       levelUp();
@@ -1004,15 +1030,19 @@ function levelUp() {
   targetAtmosphere = copyPalette(ATMOSPHERE_PALETTES[palIdx]);
   atmosphereT = 0;
   atmosphereLerping = true;
-  // Path shifting — reroute a segment on level-up
-  setTimeout(() => {
-    if (!gameOver) {
-      shiftPath();
-    }
-  }, 1500);
+  // Add extra spawn point on level-up (from level 2+)
+  if (level >= 2) {
+    setTimeout(() => {
+      if (!gameOver) {
+        addExtraSpawnPoint();
+        spawnPointNotification = { life: 2500, maxLife: 2500 };
+      }
+    }, 1500);
+  }
   updateHUD();
   const palName = ATMOSPHERE_PALETTES[palIdx].name;
-  mapShiftNotification = { life: 4500, maxLife: 4500, level, bonus, palName };
+  const hasNewSpawn = level >= 2;
+  mapShiftNotification = { life: 4500, maxLife: 4500, level, bonus, palName, hasNewSpawn };
   mapShiftDelay = 4500;
 }
 
@@ -1123,7 +1153,7 @@ document.getElementById('restart-btn').addEventListener('click', e => {
   spawnPortal = { active: false, life: 0, maxLife: 0 };
   waveActive = false; waveSpawning = false; spawnQueue = []; gameOver = false;
   selectedPlacedTower = null; mapShiftNotification = null; mapShiftDelay = 0;
-  crackedTiles = []; shiftAnimations = []; destroyedTowerEffects = [];
+  extraSpawnPoints = []; spawnPointNotification = null;
   gameSpeed = 1; autoMode = true; gameTime = 0;
   currentAtmosphere = copyPalette(ATMOSPHERE_PALETTES[0]);
   fromAtmosphere = null; targetAtmosphere = null;
