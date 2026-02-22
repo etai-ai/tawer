@@ -151,6 +151,7 @@
   }
 
   .tower-btn:active { transform: scale(0.95); }
+  .tower-btn.unaffordable { opacity: 0.3; filter: grayscale(0.8); }
   .tower-btn.selected { border-color: var(--tc); background: var(--tb); box-shadow: 0 0 12px var(--tg); }
   .tower-btn[data-type="gun"]    { --tc: #00ff88; --tb: #0d2618; --tg: rgba(0,255,136,0.2); }
   .tower-btn[data-type="cannon"] { --tc: #ff6b35; --tb: #261308; --tg: rgba(255,107,53,0.2); }
@@ -576,6 +577,10 @@ function updateHUD() {
   document.getElementById('lives').textContent = lives;
   document.getElementById('wave').textContent = `${waveNum}/${MAX_WAVES}`;
   document.getElementById('score').textContent = score;
+  document.querySelectorAll('.tower-btn').forEach(btn => {
+    const cost = TOWER_DEFS[btn.dataset.type].cost;
+    btn.classList.toggle('unaffordable', gold < cost);
+  });
 }
 
 // --- UI ---
