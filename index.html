@@ -180,12 +180,12 @@
   #start-btn:active { transform: scale(0.97); }
   #start-btn:disabled { opacity: 0.35; transform: none; }
 
-  #sell-btn {
-    background: #1a1520;
-    border: 2px solid #4a2040;
+  .action-btn {
+    background: #111822;
+    border: 2px solid #1e2d3d;
     border-radius: 10px;
-    padding: 16px 22px;
-    color: #ff6b8a;
+    padding: 16px 0;
+    color: #c8d6e5;
     font-family: 'Orbitron', sans-serif;
     font-weight: 700;
     font-size: 14px;
@@ -193,8 +193,11 @@
     cursor: pointer;
     transition: all 0.15s;
     -webkit-tap-highlight-color: transparent;
+    flex: 1;
+    text-align: center;
   }
-  #sell-btn:active { transform: scale(0.95); background: #2a1a2a; }
+  .action-btn:active { transform: scale(0.95); }
+  .action-btn.active { border-color: #00d2ff; color: #00d2ff; background: #0d1a25; box-shadow: 0 0 10px rgba(0, 210, 255, 0.15); }
 
   /* --- GAME OVER --- */
   #game-over-overlay {
@@ -244,7 +247,7 @@
     .tower-btn .tname { font-size: 12px; }
     .tower-btn .cost { font-size: 12px; }
     #start-btn { font-size: 14px; letter-spacing: 3px; }
-    #sell-btn { font-size: 12px; padding: 16px 16px; }
+    .action-btn { font-size: 12px; }
     #controls { padding: 8px; gap: 8px; }
     #tower-bar { gap: 5px; }
   }
@@ -260,7 +263,7 @@
     .tower-btn .tname { font-size: 14px; }
     .tower-btn .cost { font-size: 14px; }
     #start-btn { font-size: 18px; padding: 18px; }
-    #sell-btn { font-size: 16px; }
+    .action-btn { font-size: 16px; }
     #controls { padding: 12px 18px; }
     #game-over-overlay h2 { font-size: 42px; }
     #restart-btn { font-size: 18px; padding: 18px 50px; }
@@ -277,7 +280,7 @@
     .tower-btn .tname { font-size: 11px; }
     .tower-btn .cost { font-size: 11px; }
     #start-btn { padding: 10px 12px; font-size: 13px; }
-    #sell-btn { padding: 10px 16px; font-size: 12px; }
+    .action-btn { font-size: 11px; padding: 10px 0; }
     #controls { padding: 6px 10px; gap: 6px; }
     #tower-bar { gap: 5px; }
   }
@@ -330,7 +333,8 @@
     </div>
     <div id="action-row">
       <button id="start-btn">SEND WAVE</button>
-      <button id="sell-btn">SELL</button>
+      <button class="action-btn" id="speed-btn">1X</button>
+      <button class="action-btn" id="auto-btn">AUTO</button>
     </div>
   </div>
 </div>
@@ -455,14 +459,25 @@ document.querySelectorAll('.tower-btn').forEach(btn => {
   });
 });
 
-document.getElementById('sell-btn').addEventListener('click', e => {
+// --- SPEED & AUTO ---
+let gameSpeed = 1;
+let autoMode = false;
+
+document.getElementById('speed-btn').addEventListener('click', e => {
   e.preventDefault();
-  if (selectedPlacedTower) {
-    gold += Math.floor(TOWER_DEFS[selectedPlacedTower.type].cost * 0.6);
-    towers = towers.filter(t => t !== selectedPlacedTower);
-    selectedPlacedTower = null;
-    updateHUD();
-  }
+  if (gameSpeed === 1) gameSpeed = 2;
+  else if (gameSpeed === 2) gameSpeed = 3;
+  else gameSpeed = 1;
+  document.getElementById('speed-btn').textContent = gameSpeed + 'X';
+});
+
+document.getElementById('auto-btn').addEventListener('click', e => {
+  e.preventDefault();
+  autoMode = !autoMode;
+  const btn = document.getElementById('auto-btn');
+  btn.textContent = autoMode ? 'AUTO' : 'MANUAL';
+  btn.classList.toggle('active', autoMode);
+  if (autoMode && !waveActive && !gameOver && waveNum < MAX_WAVES) startWave();
 });
 
 // --- HOVER / TOUCH PREVIEW STATE ---
@@ -623,11 +638,15 @@ function spawnEnemy(t) {
 }
 
 // --- LOOP ---
-let lastTime = 0;
+let lastTime = 0, gameTime = 0;
 function gameLoop(ts) {
-  const dt = Math.min(ts - lastTime, 100);
+  const rawDt = Math.min(ts - lastTime, 100);
   lastTime = ts;
-  if (!gameOver) update(dt, ts);
+  if (!gameOver) {
+    const dt = rawDt * gameSpeed;
+    gameTime += dt;
+    update(dt, gameTime);
+  }
   draw();
   requestAnimationFrame(gameLoop);
 }
@@ -648,7 +667,7 @@ function update(dt, ts) {
     if (!target) { e.alive = false; lives--; updateHUD(); if (lives <= 0) endGame(false); continue; }
     const dx = target.x - e.x, dy = target.y - e.y;
     const dist = Math.hypot(dx, dy);
-    const spd = e.slowTimer > 0 ? e.speed * 0.4 : e.speed;
+    const spd = (e.slowTimer > 0 ? e.speed * 0.4 : e.speed) * gameSpeed;
     if (dist < spd * 2) e.pathIdx++;
     else { e.x += (dx / dist) * spd; e.y += (dy / dist) * spd; }
     if (e.slowTimer > 0) e.slowTimer -= dt;
@@ -680,7 +699,8 @@ function update(dt, ts) {
     const ty = b.target.alive ? b.target.y : b.ty;
     const dx = tx - b.x, dy = ty - b.y;
     const dist = Math.hypot(dx, dy);
-    if (dist < b.speed * 2) {
+    const bSpd = b.speed * gameSpeed;
+    if (dist < bSpd * 2) {
       b.alive = false;
       if (b.target.alive) {
         damageEnemy(b.target, b.damage, b.slow);
@@ -692,10 +712,10 @@ function update(dt, ts) {
         }
       }
       for (let i = 0; i < 3; i++) particles.push({x:b.x,y:b.y,vx:(Math.random()-0.5)*2,vy:(Math.random()-0.5)*2,life:200,color:b.color,size:TILE*0.05});
-    } else { b.x += (dx/dist)*b.speed; b.y += (dy/dist)*b.speed; }
+    } else { b.x += (dx/dist)*bSpd; b.y += (dy/dist)*bSpd; }
   }
 
-  for (const p of particles) { p.x += p.vx; p.y += p.vy; p.life -= dt; }
+  for (const p of particles) { p.x += p.vx * gameSpeed; p.y += p.vy * gameSpeed; p.life -= dt; }
   enemies = enemies.filter(e => e.alive);
   bullets = bullets.filter(b => b.alive);
   particles = particles.filter(p => p.life > 0);
@@ -706,6 +726,7 @@ function update(dt, ts) {
     updateHUD();
     document.getElementById('start-btn').disabled = false;
     if (waveNum >= MAX_WAVES) endGame(true);
+    else if (autoMode) startWave();
   }
 }
 
@@ -734,6 +755,10 @@ document.getElementById('restart-btn').addEventListener('click', e => {
   towers = []; enemies = []; bullets = []; particles = [];
   waveActive = false; waveSpawning = false; spawnQueue = []; gameOver = false;
   selectedPlacedTower = null;
+  gameSpeed = 1; autoMode = false; gameTime = 0;
+  document.getElementById('speed-btn').textContent = '1X';
+  document.getElementById('auto-btn').textContent = 'AUTO';
+  document.getElementById('auto-btn').classList.remove('active');
   document.getElementById('game-over-overlay').classList.remove('show');
   document.getElementById('start-btn').disabled = false;
   updateHUD();
