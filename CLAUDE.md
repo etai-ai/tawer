@@ -1,27 +1,29 @@
 # TAWER — Tower Defense Game
 
 ## Overview
-Single-file HTML5 canvas tower defense game (~1245 lines). Everything (HTML, CSS, JS) lives in `index.html`. No build tools, no dependencies, no frameworks.
+HTML5 canvas tower defense game split across 3 files. No build tools, no dependencies, no frameworks.
 
 ## Architecture
-- **Single file**: `index.html` contains all markup, styles, and game logic
+- **`index.html`**: HTML structure only (canvas, HUD, tower buttons, modals)
+- **`style.css`**: All CSS styles and responsive media queries
+- **`game.js`**: All game logic (rendering, state, maps, towers, enemies, sound)
 - **Rendering**: HTML5 Canvas 2D (id: `game-canvas`)
 - **UI**: DOM-based HUD overlay on top of canvas (tower bar, wave controls, stats)
 - **Fonts**: Orbitron (headings), Share Tech Mono (monospace UI)
 - **Mobile**: Full touch support, responsive, PWA-capable meta tags
 
-## Key Code Sections (in index.html)
-- **Lines ~10-200**: CSS styles
-- **Lines ~300-340**: HTML structure (canvas, HUD, tower buttons, modals)
-- **Lines ~360-500**: Map definitions (`MAPS` array, 10x16 grid), BFS path computation
-- **Lines ~500-510**: Game state variables (gold, lives, score, towers, enemies, etc.)
-- **Lines ~510-515**: `TOWER_DEFS` — tower type definitions (gun, cannon, sniper, frost)
-- **Lines ~600-630**: Game speed / auto-wave controls
-- **Lines ~660-695**: Tower placement and selection logic
-- **Lines ~700-710**: `ENEMY_TYPES` — enemy type definitions (grunt, runner, tank, swarm, healer, boss)
-- **Lines ~712-762**: Wave spawning, scaling formulas, and composition logic
-- **Lines ~770-905**: Game loop, update (spawning, movement, targeting, bullets, damage), levelUp
-- **Lines ~940+**: Rendering (draw function)
+## Key Code Sections (in game.js)
+- Map definitions (`WORLDS` array, 10x16 grid), BFS path computation
+- Game state variables (gold, lives, score, towers, enemies, etc.)
+- `TOWER_DEFS` — tower type definitions (gun, cannon, sniper, frost)
+- Game speed / auto-wave controls
+- Tower placement, upgrade, and selection logic
+- `ENEMY_TYPES` — enemy type definitions (grunt, runner, tank, swarm, healer, boss)
+- Wave spawning, scaling formulas, and composition logic
+- Game loop, update (spawning, movement, targeting, bullets, damage), levelUp
+- Atmosphere palettes and lerping
+- Sound engine (Web Audio, procedural SFX)
+- Rendering (draw function)
 
 ## Game Constants
 - Grid: 10 cols x 16 rows, tile size `TILE` computed from canvas
