@@ -6,24 +6,39 @@ HTML5 canvas tower defense game split across 3 files. No build tools, no depende
 ## Architecture
 - **`index.html`**: HTML structure only (canvas, HUD, tower buttons, modals)
 - **`style.css`**: All CSS styles and responsive media queries
-- **`game.js`**: All game logic (rendering, state, maps, towers, enemies, sound)
+- **`config.js`**: Data definitions & pure utilities (loaded first, no DOM access)
+- **`engine.js`**: Game state, logic, sound, UI handlers (loaded second)
+- **`render.js`**: Drawing & game loop (loaded third)
 - **Rendering**: HTML5 Canvas 2D (id: `game-canvas`)
 - **UI**: DOM-based HUD overlay on top of canvas (tower bar, wave controls, stats)
 - **Fonts**: Orbitron (headings), Share Tech Mono (monospace UI)
 - **Mobile**: Full touch support, responsive, PWA-capable meta tags
 
-## Key Code Sections (in game.js)
-- Map definitions (`WORLDS` array, 10x16 grid), BFS path computation
-- Game state variables (gold, lives, score, towers, enemies, etc.)
+## Key Code Sections
+
+### config.js — Data & Utilities
+- `WORLDS` array (map data, 10x16 grid)
 - `TOWER_DEFS` — tower type definitions (gun, cannon, sniper, frost)
-- Game speed / auto-wave controls
-- Tower placement, upgrade, and selection logic
 - `ENEMY_TYPES` — enemy type definitions (grunt, runner, tank, swarm, healer, boss)
-- Wave spawning, scaling formulas, and composition logic
-- Game loop, update (spawning, movement, targeting, bullets, damage), levelUp
-- Atmosphere palettes and lerping
+- `ATMOSPHERE_PALETTES` — 10 level atmosphere color palettes
+- Helper functions: `shadeColor`, `lerpHex`, `lerpRgba`, `copyPalette`, `lerpPalette`
+- `loadBestScores`, `saveBestScore` (localStorage)
+
+### engine.js — State, Logic, Sound, UI
+- Canvas/wrapper references, map variables & functions (padMap, scatterRocks, resize, buildPath)
+- Game state variables (gold, lives, score, towers, enemies, bullets, particles, etc.)
+- Atmosphere state & ambient particles
 - Sound engine (Web Audio, procedural SFX)
-- Rendering (draw function)
+- HUD updates, UI event handlers (tower selection, speed/auto/sound buttons, hover/touch, canvas tap)
+- Game logic: startWave, getWaveComposition, spawnEnemy, update, levelUp, damageEnemy, endGame
+- Destructible tiles & path shifting
+- Restart handler
+
+### render.js — Drawing & Game Loop
+- `drawTowerIcon` + initial icon rendering on tower buttons
+- `draw()` function (all canvas rendering)
+- `gameLoop` function
+- Init: resize listener, first resize, updateHUD, requestAnimationFrame
 
 ## Game Constants
 - Grid: 10 cols x 16 rows, tile size `TILE` computed from canvas
