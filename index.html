@@ -63,7 +63,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px 12px;
+    padding: 6px 12px;
     flex-shrink: 0;
     background: #0a0c10;
     border-bottom: 1px solid #1e2a3a;
@@ -81,19 +81,21 @@
 
   #hud {
     display: flex;
-    gap: 12px;
+    flex-direction: column;
+    gap: 2px;
     font-family: 'Orbitron', sans-serif;
     font-size: 13px;
     letter-spacing: 1px;
-    flex-wrap: wrap;
-    justify-content: flex-end;
+    align-items: flex-end;
   }
 
+  .hud-row { display: flex; gap: 12px; }
   .hud-item { display: flex; align-items: center; gap: 5px; }
   .hud-label { color: #8899aa; font-size: 11px; font-weight: 700; }
   .hud-value { font-weight: 700; font-size: 18px; }
   .hud-value.gold { color: #ffd700; }
   .hud-value.lives { color: #ff5a6a; }
+  .hud-value.level-val { color: #ff9f43; }
   .hud-value.wave-val { color: #55bbff; }
   .hud-value.score-val { color: #00ff88; }
 
@@ -246,7 +248,7 @@
     h1 { font-size: 18px; letter-spacing: 3px; }
     .hud-value { font-size: 15px; }
     .hud-label { font-size: 10px; }
-    #hud { gap: 8px; }
+    .hud-row { gap: 8px; }
     .tower-btn { min-height: 62px; }
     .tower-btn .icon { font-size: 26px; }
     .tower-btn .tname { font-size: 12px; }
@@ -260,7 +262,8 @@
   /* Tablet / Desktop */
   @media (min-width: 600px) {
     h1 { font-size: 28px; letter-spacing: 6px; }
-    #hud { font-size: 14px; gap: 24px; }
+    #hud { font-size: 14px; }
+    .hud-row { gap: 24px; }
     .hud-label { font-size: 12px; }
     .hud-value { font-size: 22px; }
     .tower-btn { padding: 14px 8px; min-height: 80px; }
@@ -297,10 +300,15 @@
   <div id="top-bar">
     <h1>TAWER</h1>
     <div id="hud">
-      <div class="hud-item"><span class="hud-label">GOLD</span><span class="hud-value gold" id="gold">300</span></div>
-      <div class="hud-item"><span class="hud-label">LIVES</span><span class="hud-value lives" id="lives">30</span></div>
-      <div class="hud-item"><span class="hud-label">WAVE</span><span class="hud-value wave-val" id="wave">0</span></div>
-      <div class="hud-item"><span class="hud-label">SCORE</span><span class="hud-value score-val" id="score">0</span></div>
+      <div class="hud-row">
+        <div class="hud-item"><span class="hud-label">GOLD</span><span class="hud-value gold" id="gold">300</span></div>
+        <div class="hud-item"><span class="hud-label">LIVES</span><span class="hud-value lives" id="lives">30</span></div>
+      </div>
+      <div class="hud-row">
+        <div class="hud-item"><span class="hud-label">LVL</span><span class="hud-value level-val" id="level">1</span></div>
+        <div class="hud-item"><span class="hud-label">WAVE</span><span class="hud-value wave-val" id="wave">0</span></div>
+        <div class="hud-item"><span class="hud-label">SCORE</span><span class="hud-value score-val" id="score">0</span></div>
+      </div>
     </div>
   </div>
 
@@ -490,7 +498,7 @@ function buildPath() {
 }
 
 // --- STATE ---
-let gold = 300, lives = 30, waveNum = 0, score = 0;
+let gold = 300, lives = 30, waveNum = 0, score = 0, level = 1;
 let towers = [], enemies = [], bullets = [], particles = [], placeEffects = [];
 let mapShiftNotification = null;
 let mapShiftDelay = 0;
@@ -576,6 +584,7 @@ document.querySelectorAll('.tower-btn').forEach(btn => {
 function updateHUD() {
   document.getElementById('gold').textContent = gold;
   document.getElementById('lives').textContent = lives;
+  document.getElementById('level').textContent = level;
   document.getElementById('wave').textContent = waveNum;
   document.getElementById('score').textContent = score;
   document.querySelectorAll('.tower-btn').forEach(btn => {
@@ -873,6 +882,7 @@ function update(dt, ts) {
 }
 
 function rotateMap() {
+  level++;
   currentMapIdx = (currentMapIdx + 1) % MAPS.length;
   mapData = MAPS[currentMapIdx].data.map(r => [...r]);
   towers = [];
@@ -881,8 +891,8 @@ function rotateMap() {
   gold += bonus;
   resize();
   updateHUD();
-  mapShiftNotification = { life: 2500, maxLife: 2500, mapName: MAPS[currentMapIdx].name, bonus };
-  mapShiftDelay = 2500; // auto-start next wave after notification ends (game-time)
+  mapShiftNotification = { life: 2500, maxLife: 2500, level, bonus };
+  mapShiftDelay = 2500;
 }
 
 function damageEnemy(e, dmg, slow) {
@@ -901,12 +911,12 @@ function endGame() {
   const msg = document.getElementById('end-msg');
   overlay.classList.add('show');
   title.textContent = 'DEFEATED'; title.className = '';
-  msg.textContent = `Score: ${score} · Wave ${waveNum}`;
+  msg.textContent = `Score: ${score} · Level ${level} · Wave ${waveNum}`;
 }
 
 document.getElementById('restart-btn').addEventListener('click', e => {
   e.preventDefault();
-  gold = 300; lives = 30; waveNum = 0; score = 0;
+  gold = 300; lives = 30; waveNum = 0; score = 0; level = 1;
   towers = []; enemies = []; bullets = []; particles = []; placeEffects = [];
   waveActive = false; waveSpawning = false; spawnQueue = []; gameOver = false;
   selectedPlacedTower = null; mapShiftNotification = null; mapShiftDelay = 0;
@@ -1161,7 +1171,7 @@ function draw() {
     ctx.fillStyle = '#ff4757'; ctx.fillText('■', path[path.length-1].x, path[path.length-1].y);
   }
 
-  // --- MAP SHIFT NOTIFICATION ---
+  // --- LEVEL UP NOTIFICATION ---
   if (mapShiftNotification) {
     const ms = mapShiftNotification;
     const t = ms.life / ms.maxLife; // 1→0
@@ -1171,13 +1181,13 @@ function draw() {
     ctx.fillStyle = '#0a0c10';
     ctx.fillRect(0, H * 0.35, W, H * 0.3);
     ctx.globalAlpha = alpha;
-    ctx.fillStyle = '#00d2ff';
+    ctx.fillStyle = '#ff9f43';
     ctx.font = `bold ${Math.max(16, TILE * 0.7)}px Orbitron, sans-serif`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('MAP SHIFT', W / 2, H * 0.44);
+    ctx.fillText(`LEVEL ${ms.level}`, W / 2, H * 0.44);
     ctx.fillStyle = '#8899aa';
     ctx.font = `${Math.max(11, TILE * 0.38)}px 'Share Tech Mono', monospace`;
-    ctx.fillText(`${ms.mapName} · +${ms.bonus}g`, W / 2, H * 0.54);
+    ctx.fillText(`+${ms.bonus}g`, W / 2, H * 0.54);
     ctx.restore();
   }
 
