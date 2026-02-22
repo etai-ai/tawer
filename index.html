@@ -493,6 +493,7 @@ function buildPath() {
 let gold = 300, lives = 30, waveNum = 0, score = 0;
 let towers = [], enemies = [], bullets = [], particles = [], placeEffects = [];
 let mapShiftNotification = null;
+let mapShiftDelay = 0;
 let selectedTower = 'gun';
 let selectedPlacedTower = null;
 let waveActive = false, waveSpawning = false, spawnQueue = [], spawnTimer = 0;
@@ -860,6 +861,15 @@ function update(dt, ts) {
     mapShiftNotification.life -= dt;
     if (mapShiftNotification.life <= 0) mapShiftNotification = null;
   }
+
+  // Map shift delay — start next wave when it expires
+  if (mapShiftDelay > 0) {
+    mapShiftDelay -= dt;
+    if (mapShiftDelay <= 0) {
+      mapShiftDelay = 0;
+      if (autoMode && !waveActive && !gameOver) startWave();
+    }
+  }
 }
 
 function rotateMap() {
@@ -872,8 +882,7 @@ function rotateMap() {
   resize();
   updateHUD();
   mapShiftNotification = { life: 2500, maxLife: 2500, mapName: MAPS[currentMapIdx].name, bonus };
-  // Continue auto-wave after a brief pause
-  setTimeout(() => { if (autoMode && !waveActive && !gameOver) startWave(); }, 2000);
+  mapShiftDelay = 2500; // auto-start next wave after notification ends (game-time)
 }
 
 function damageEnemy(e, dmg, slow) {
@@ -900,7 +909,7 @@ document.getElementById('restart-btn').addEventListener('click', e => {
   gold = 300; lives = 30; waveNum = 0; score = 0;
   towers = []; enemies = []; bullets = []; particles = []; placeEffects = [];
   waveActive = false; waveSpawning = false; spawnQueue = []; gameOver = false;
-  selectedPlacedTower = null; mapShiftNotification = null;
+  selectedPlacedTower = null; mapShiftNotification = null; mapShiftDelay = 0;
   gameSpeed = 1; autoMode = true; gameTime = 0;
   currentMapIdx = (currentMapIdx + 1) % MAPS.length;
   mapData = MAPS[currentMapIdx].data.map(r => [...r]);
