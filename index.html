@@ -239,6 +239,54 @@
     color: #ff4757;
     letter-spacing: 6px;
     text-shadow: 0 0 30px rgba(255, 71, 87, 0.4);
+    transition: transform 0.4s ease, opacity 0.3s ease;
+  }
+  #game-over-overlay h2.record {
+    color: #ffd700;
+    font-size: 40px;
+    letter-spacing: 8px;
+    animation: recordPulse 1.5s ease-in-out infinite, recordEntry 0.5s ease-out;
+    text-shadow: 0 0 20px rgba(255, 215, 0, 0.6), 0 0 60px rgba(255, 215, 0, 0.3), 0 0 100px rgba(255, 165, 0, 0.15);
+  }
+  #record-score {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 52px;
+    color: #fff;
+    letter-spacing: 4px;
+    opacity: 0;
+    transform: scale(0.5);
+    text-shadow: 0 0 30px rgba(255, 215, 0, 0.5);
+  }
+  #record-score.show {
+    animation: scoreReveal 0.6s ease-out 0.15s forwards;
+  }
+  #record-stars {
+    font-size: 24px;
+    letter-spacing: 12px;
+    opacity: 0;
+    color: #ffd700;
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+  }
+  #record-stars.show {
+    animation: starsReveal 0.5s ease-out 0.4s forwards;
+  }
+  @keyframes recordPulse {
+    0%, 100% { text-shadow: 0 0 20px rgba(255,215,0,0.6), 0 0 60px rgba(255,215,0,0.3); }
+    50% { text-shadow: 0 0 30px rgba(255,215,0,0.9), 0 0 80px rgba(255,215,0,0.5), 0 0 120px rgba(255,165,0,0.25); }
+  }
+  @keyframes recordEntry {
+    0% { transform: scale(1.8); opacity: 0; }
+    60% { transform: scale(0.95); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  @keyframes scoreReveal {
+    0% { opacity: 0; transform: scale(0.5); }
+    70% { opacity: 1; transform: scale(1.08); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+  @keyframes starsReveal {
+    0% { opacity: 0; letter-spacing: 30px; }
+    100% { opacity: 1; letter-spacing: 12px; }
   }
 
 
@@ -337,7 +385,9 @@
   <div id="canvas-wrapper">
     <canvas id="game-canvas"></canvas>
     <div id="game-over-overlay">
+      <div id="record-stars"></div>
       <h2 id="end-title">DEFEATED</h2>
+      <div id="record-score"></div>
       <p id="end-msg" style="color:#556677;letter-spacing:2px;font-size:16px;"></p>
       <button id="restart-btn">RESTART</button>
     </div>
@@ -460,6 +510,9 @@ const WORLDS = [
     [0,0,0,0,0,0,0,0,0,0],
   ]},
 ];
+
+function loadBestScores() { try { return JSON.parse(localStorage.getItem('tawer_best')) || {}; } catch(e) { return {}; } }
+function saveBestScore(world, s) { const b = loadBestScores(); if (!b[world] || s > b[world]) { b[world] = s; localStorage.setItem('tawer_best', JSON.stringify(b)); return true; } return false; }
 
 let currentWorldIdx = Math.floor(Math.random() * WORLDS.length);
 let mapData = [];
@@ -1060,9 +1113,28 @@ function endGame() {
   const overlay = document.getElementById('game-over-overlay');
   const title = document.getElementById('end-title');
   const msg = document.getElementById('end-msg');
+  const recordScore = document.getElementById('record-score');
+  const recordStars = document.getElementById('record-stars');
+  recordScore.className = ''; recordScore.textContent = '';
+  recordStars.className = ''; recordStars.textContent = '';
   overlay.classList.add('show');
-  title.textContent = 'DEFEATED'; title.className = '';
+  title.textContent = 'DEFEATED'; title.className = ''; title.style.color = '';
   msg.textContent = `Score: ${score} · ${WORLDS[currentWorldIdx].name} · Level ${level} · Wave ${waveNum}`;
+  const worldName = WORLDS[currentWorldIdx].name;
+  const isRecord = saveBestScore(worldName, score);
+  if (isRecord && score > 0) {
+    setTimeout(() => {
+      SFX.newRecord();
+      title.textContent = 'NEW RECORD!';
+      title.className = 'record';
+      recordStars.textContent = '\u2605 \u2605 \u2605';
+      recordStars.className = 'show';
+      recordScore.textContent = score;
+      recordScore.className = 'show';
+      msg.textContent = `${worldName} \u00b7 Level ${level} \u00b7 Wave ${waveNum}`;
+      msg.style.color = '#8899aa';
+    }, 1000);
+  }
 }
 
 document.getElementById('restart-btn').addEventListener('click', e => {
@@ -1084,6 +1156,13 @@ document.getElementById('restart-btn').addEventListener('click', e => {
   document.getElementById('auto-btn').textContent = 'AUTO';
   document.getElementById('auto-btn').classList.add('active');
   document.getElementById('game-over-overlay').classList.remove('show');
+  document.getElementById('end-title').style.color = '';
+  document.getElementById('end-title').className = '';
+  document.getElementById('end-msg').style.color = '';
+  document.getElementById('record-score').className = '';
+  document.getElementById('record-score').textContent = '';
+  document.getElementById('record-stars').className = '';
+  document.getElementById('record-stars').textContent = '';
   document.getElementById('start-btn').disabled = false;
   updateHUD();
 });
@@ -1213,6 +1292,13 @@ const SFX = {
   },
   cantPlace() {
     playTone(200, 0.1, 'square', 0.1);
+  },
+  newRecord() {
+    setTimeout(() => playTone(800, 0.15, 'sine', 0.25), 0);
+    setTimeout(() => playTone(1000, 0.15, 'sine', 0.22), 100);
+    setTimeout(() => playTone(1200, 0.15, 'sine', 0.2), 200);
+    setTimeout(() => playTone(1600, 0.2, 'sine', 0.25), 350);
+    setTimeout(() => { playTone(1600, 0.3, 'sine', 0.18); playTone(2000, 0.3, 'sine', 0.15); }, 500);
   },
 };
 
