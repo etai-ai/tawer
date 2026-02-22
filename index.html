@@ -336,7 +336,7 @@
       </button>
     </div>
     <div id="action-row">
-      <button id="start-btn">SEND WAVE</button>
+      <button id="start-btn">START</button>
       <button class="action-btn" id="speed-btn">1X</button>
       <button class="action-btn active" id="auto-btn">AUTO</button>
     </div>
@@ -352,24 +352,83 @@ const wrapper = document.getElementById('canvas-wrapper');
 const MAP_COLS = 10, MAP_ROWS = 16;
 let TILE, W, H;
 
-const mapData = [
-  [0,0,0,0,0,0,0,0,0,0],
-  [0,1,1,1,1,1,1,1,0,0],
-  [0,1,0,0,0,0,0,1,0,0],
-  [0,1,0,0,0,0,0,1,0,0],
-  [2,1,0,0,0,0,0,1,0,0],
-  [0,0,0,0,0,0,0,1,0,0],
-  [0,0,0,1,1,1,1,1,0,0],
-  [0,0,0,1,0,0,0,0,0,0],
-  [0,0,0,1,0,0,0,0,0,0],
-  [0,0,0,1,1,1,1,1,1,0],
-  [0,0,0,0,0,0,0,0,1,0],
-  [0,1,1,1,1,1,1,0,1,0],
-  [0,1,0,0,0,0,1,0,1,0],
-  [0,1,0,0,0,0,1,1,1,0],
-  [0,1,1,1,1,1,0,0,0,0],
-  [0,0,0,0,0,3,0,0,0,0],
+const MAPS = [
+  { name: 'SERPENT', data: [
+    [0,0,0,0,0,0,0,0,0,0],
+    [0,1,1,1,1,1,1,1,0,0],
+    [0,1,0,0,0,0,0,1,0,0],
+    [0,1,0,0,0,0,0,1,0,0],
+    [2,1,0,0,0,0,0,1,0,0],
+    [0,0,0,0,0,0,0,1,0,0],
+    [0,0,0,1,1,1,1,1,0,0],
+    [0,0,0,1,0,0,0,0,0,0],
+    [0,0,0,1,0,0,0,0,0,0],
+    [0,0,0,1,1,1,1,1,1,0],
+    [0,0,0,0,0,0,0,0,1,0],
+    [0,1,1,1,1,1,1,0,1,0],
+    [0,1,0,0,0,0,1,0,1,0],
+    [0,1,0,0,0,0,1,1,1,0],
+    [0,1,1,1,1,1,0,0,0,0],
+    [0,0,0,0,0,3,0,0,0,0],
+  ]},
+  { name: 'SPIRAL', data: [
+    [0,0,0,0,0,0,0,0,0,0],
+    [2,1,1,1,1,1,1,1,1,0],
+    [0,0,0,0,0,0,0,0,1,0],
+    [0,1,1,1,1,1,1,0,1,0],
+    [0,1,0,0,0,0,1,0,1,0],
+    [0,1,0,1,1,0,1,0,1,0],
+    [0,1,0,1,0,0,1,0,1,0],
+    [0,1,0,1,0,0,1,0,1,0],
+    [0,1,0,1,0,0,1,0,1,0],
+    [0,1,0,1,0,0,1,0,1,0],
+    [0,1,0,1,1,1,1,0,1,0],
+    [0,1,0,0,0,0,0,0,1,0],
+    [0,1,1,1,1,1,1,1,1,0],
+    [0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,3,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0],
+  ]},
+  { name: 'ZIGZAG', data: [
+    [0,0,0,0,0,0,0,0,0,0],
+    [2,1,1,0,0,0,0,0,0,0],
+    [0,0,1,0,0,0,0,0,0,0],
+    [0,0,1,1,1,1,1,0,0,0],
+    [0,0,0,0,0,0,1,0,0,0],
+    [0,0,0,0,0,0,1,0,0,0],
+    [0,0,1,1,1,1,1,0,0,0],
+    [0,0,1,0,0,0,0,0,0,0],
+    [0,0,1,0,0,0,0,0,0,0],
+    [0,0,1,1,1,1,1,1,0,0],
+    [0,0,0,0,0,0,0,1,0,0],
+    [0,0,0,0,0,0,0,1,0,0],
+    [0,0,0,1,1,1,1,1,0,0],
+    [0,0,0,1,0,0,0,0,0,0],
+    [0,0,0,1,1,0,0,0,0,0],
+    [0,0,0,0,3,0,0,0,0,0],
+  ]},
+  { name: 'FORTRESS', data: [
+    [0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,2,0,0,0,0,0],
+    [0,0,0,0,1,0,0,0,0,0],
+    [0,0,1,1,1,1,1,0,0,0],
+    [0,0,1,0,0,0,1,0,0,0],
+    [0,0,1,0,0,0,1,0,0,0],
+    [0,0,1,0,0,0,1,0,0,0],
+    [0,1,1,0,0,0,1,1,0,0],
+    [0,1,0,0,0,0,0,1,0,0],
+    [0,1,0,0,0,0,0,1,0,0],
+    [0,1,0,0,0,0,0,1,0,0],
+    [0,1,1,1,0,1,1,1,0,0],
+    [0,0,0,1,0,1,0,0,0,0],
+    [0,0,0,1,1,1,0,0,0,0],
+    [0,0,0,0,1,0,0,0,0,0],
+    [0,0,0,0,3,0,0,0,0,0],
+  ]},
 ];
+
+let currentMapIdx = Math.floor(Math.random() * MAPS.length);
+let mapData = MAPS[currentMapIdx].data.map(r => [...r]);
 
 function resize() {
   const cw = wrapper.clientWidth;
@@ -432,7 +491,7 @@ function buildPath() {
 // --- STATE ---
 let gold = 300, lives = 30, waveNum = 0, score = 0;
 const MAX_WAVES = 10;
-let towers = [], enemies = [], bullets = [], particles = [];
+let towers = [], enemies = [], bullets = [], particles = [], placeEffects = [];
 let selectedTower = 'gun';
 let selectedPlacedTower = null;
 let waveActive = false, waveSpawning = false, spawnQueue = [], spawnTimer = 0;
@@ -602,14 +661,21 @@ function handleTap(e) {
   if (gold < def.cost) return;
 
   gold -= def.cost;
+  const tx = col * TILE + TILE / 2;
+  const ty = row * TILE + TILE / 2;
   towers.push({
     type: selectedTower, col, row,
-    x: col * TILE + TILE / 2,
-    y: row * TILE + TILE / 2,
+    x: tx, y: ty,
     lastFire: 0, angle: 0,
     ...def,
     range: def.range * (TILE / 40),
   });
+  // Placement VFX
+  placeEffects.push({ x: tx, y: ty, life: 400, maxLife: 400, color: def.color, range: def.range * (TILE / 40) });
+  for (let i = 0; i < 10; i++) {
+    const a = Math.PI * 2 * i / 10;
+    particles.push({ x: tx, y: ty, vx: Math.cos(a) * 2.5, vy: Math.sin(a) * 2.5, life: 500, color: def.color, size: TILE * 0.08 });
+  }
   updateHUD();
 }
 
@@ -787,9 +853,11 @@ function update(dt, ts) {
   }
 
   for (const p of particles) { p.x += p.vx * gameSpeed; p.y += p.vy * gameSpeed; p.life -= dt; }
+  for (const pe of placeEffects) pe.life -= dt;
   enemies = enemies.filter(e => e.alive);
   bullets = bullets.filter(b => b.alive);
   particles = particles.filter(p => p.life > 0);
+  placeEffects = placeEffects.filter(pe => pe.life > 0);
 
   if (waveActive && !waveSpawning && spawnQueue.length === 0 && enemies.length === 0) {
     waveActive = false;
@@ -823,10 +891,13 @@ function endGame(win) {
 document.getElementById('restart-btn').addEventListener('click', e => {
   e.preventDefault();
   gold = 300; lives = 30; waveNum = 0; score = 0;
-  towers = []; enemies = []; bullets = []; particles = [];
+  towers = []; enemies = []; bullets = []; particles = []; placeEffects = [];
   waveActive = false; waveSpawning = false; spawnQueue = []; gameOver = false;
   selectedPlacedTower = null;
   gameSpeed = 1; autoMode = true; gameTime = 0;
+  currentMapIdx = (currentMapIdx + 1) % MAPS.length;
+  mapData = MAPS[currentMapIdx].data.map(r => [...r]);
+  resize();
   document.getElementById('speed-btn').textContent = '1X';
   document.getElementById('auto-btn').textContent = 'AUTO';
   document.getElementById('auto-btn').classList.add('active');
@@ -902,6 +973,22 @@ function draw() {
 
     ctx.fillStyle = t.color;
     ctx.beginPath(); ctx.arc(t.x, t.y, TILE*0.07, 0, Math.PI*2); ctx.fill();
+  }
+
+  // Placement effects
+  for (const pe of placeEffects) {
+    const t = 1 - pe.life / pe.maxLife; // 0→1
+    const alpha = 1 - t;
+    // Expanding ring
+    ctx.strokeStyle = pe.color;
+    ctx.globalAlpha = alpha * 0.6;
+    ctx.lineWidth = 2.5 * (1 - t);
+    ctx.beginPath(); ctx.arc(pe.x, pe.y, pe.range * t, 0, Math.PI * 2); ctx.stroke();
+    // Inner flash
+    ctx.globalAlpha = alpha * 0.3;
+    ctx.fillStyle = pe.color;
+    ctx.beginPath(); ctx.arc(pe.x, pe.y, TILE * 0.5 * (1 - t), 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
   }
 
   for (const e of enemies) {
