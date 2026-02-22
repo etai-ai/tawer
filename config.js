@@ -26,11 +26,11 @@ const BALANCE = {
   hpExponentCap: 0.4,
 
   // Enemy speed
-  wave1Speed: 0.665,
-  speedBase: 0.8,
-  speedScaling: 0.04,
-  speedCap: 1.6,
-  speedMultiplier: 0.95,
+  wave1Speed: 0.632,
+  speedBase: 0.76,
+  speedScaling: 0.038,
+  speedCap: 1.52,
+  speedMultiplier: 0.9025,
 
   // Kill reward
   rewardBase: 3.675,
