@@ -325,7 +325,7 @@
     <div id="hud">
       <div class="hud-row">
         <div class="hud-item"><span class="hud-label">GOLD</span><span class="hud-value gold" id="gold">300</span></div>
-        <div class="hud-item"><span class="hud-label">LIVES</span><span class="hud-value lives" id="lives">30</span></div>
+        <div class="hud-item"><span class="hud-label">LIVES</span><span class="hud-value lives" id="lives">10</span></div>
       </div>
       <div class="hud-row">
         <div class="hud-item"><span class="hud-label">WAVE</span><span class="hud-value wave-val" id="wave">0</span></div>
@@ -461,6 +461,21 @@ const WORLDS = [
 let currentWorldIdx = Math.floor(Math.random() * WORLDS.length);
 let mapData = WORLDS[currentWorldIdx].data.map(r => [...r]);
 
+// Mark ~20% of grass tiles as unbuildable rocky terrain (value 4)
+function scatterRocks() {
+  const grass = [];
+  for (let r = 0; r < MAP_ROWS; r++)
+    for (let c = 0; c < MAP_COLS; c++)
+      if (mapData[r][c] === 0) grass.push({ r, c });
+  const count = Math.floor(grass.length * 0.12);
+  for (let i = grass.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [grass[i], grass[j]] = [grass[j], grass[i]];
+  }
+  for (let i = 0; i < count; i++) mapData[grass[i].r][grass[i].c] = 4;
+}
+scatterRocks();
+
 function resize() {
   const rect = canvas.getBoundingClientRect();
   const cw = Math.round(rect.width);
@@ -519,7 +534,7 @@ function buildPath() {
 }
 
 // --- STATE ---
-let gold = 300, lives = 30, waveNum = 0, score = 0, level = 1;
+let gold = 300, lives = 10, waveNum = 0, score = 0, level = 1;
 let towers = [], enemies = [], bullets = [], particles = [], placeEffects = [];
 let mapShiftNotification = null;
 let mapShiftDelay = 0;
@@ -742,7 +757,7 @@ function startWave() {
   const baseCount = waveNum === 1 ? 3 : 3 + Math.floor(waveNum * 1.5 + Math.pow(waveNum, 0.8));
   const hp = waveNum === 1 ? 15 : 15 + waveNum * 10 + Math.pow(waveNum, 1.6);
   const baseSpeed = (waveNum === 1 ? 0.7 : 0.8 + Math.min(waveNum * 0.04, 1.2)) * (TILE / 40);
-  const reward = 8 + Math.floor(waveNum * 0.8);
+  const reward = 5 + Math.floor(waveNum * 0.5);
 
   spawnQueue = [];
 
@@ -877,7 +892,7 @@ function update(dt, ts) {
 
   if (waveActive && !waveSpawning && spawnQueue.length === 0 && enemies.length === 0) {
     waveActive = false;
-    gold += 15 + Math.floor(waveNum * 2); // wave completion bonus (tapers off relative to costs)
+    gold += 10 + Math.floor(waveNum * 1.2); // wave completion bonus
     updateHUD();
     document.getElementById('start-btn').disabled = false;
     // Level up every 10 waves
@@ -931,9 +946,9 @@ function update(dt, ts) {
 function levelUp() {
   level++;
   const palIdx = Math.min(level - 1, ATMOSPHERE_PALETTES.length - 1);
-  const bonus = 100 + level * 25;
+  const bonus = 60 + level * 15;
   gold += bonus;
-  lives = Math.min(lives + 3, 30);
+  lives = Math.min(lives + 3, 10);
   // Trigger atmosphere transition
   fromAtmosphere = copyPalette(currentAtmosphere);
   targetAtmosphere = copyPalette(ATMOSPHERE_PALETTES[palIdx]);
@@ -966,7 +981,7 @@ function endGame() {
 
 document.getElementById('restart-btn').addEventListener('click', e => {
   e.preventDefault();
-  gold = 300; lives = 30; waveNum = 0; score = 0; level = 1;
+  gold = 300; lives = 10; waveNum = 0; score = 0; level = 1;
   towers = []; enemies = []; bullets = []; particles = []; placeEffects = [];
   waveActive = false; waveSpawning = false; spawnQueue = []; gameOver = false;
   selectedPlacedTower = null; mapShiftNotification = null; mapShiftDelay = 0;
@@ -977,6 +992,7 @@ document.getElementById('restart-btn').addEventListener('click', e => {
   ambientParticles = [];
   currentWorldIdx = (currentWorldIdx + 1) % WORLDS.length;
   mapData = WORLDS[currentWorldIdx].data.map(r => [...r]);
+  scatterRocks();
   resize();
   document.getElementById('speed-btn').textContent = '1X';
   document.getElementById('auto-btn').textContent = 'AUTO';
@@ -996,26 +1012,31 @@ function shadeColor(hex, amt) {
 // --- ATMOSPHERE ---
 const ATMOSPHERE_PALETTES = [
   { name: 'FOREST', grass: '#08100a', grassTex: '#0c1610', gridLine: '#0e1a10',
+    rock: '#1a1a14', rockTex: '#2a2820',
     path: '#4a4035', pathInset: '#5c5045', pathBorder: '#6a6050',
     glowOuter: 'rgba(180,150,100,0.12)', glowInner: 'rgba(200,170,120,0.06)',
     startTile: '#2a6040', startInset: '#308050', endTile: '#6a2828', endInset: '#803030',
     accent: '#88aa66', notifColor: '#ff9f43' },
   { name: 'DEPTHS', grass: '#080c14', grassTex: '#0c1018', gridLine: '#0e1620',
+    rock: '#141822', rockTex: '#222a34',
     path: '#2a3548', pathInset: '#364558', pathBorder: '#4a5568',
     glowOuter: 'rgba(80,130,200,0.12)', glowInner: 'rgba(100,150,220,0.06)',
     startTile: '#1a4060', startInset: '#205070', endTile: '#602828', endInset: '#703030',
     accent: '#4488cc', notifColor: '#4488cc' },
   { name: 'CORRUPTION', grass: '#0e0810', grassTex: '#120c16', gridLine: '#1a1020',
+    rock: '#1c1420', rockTex: '#2a2030',
     path: '#3a2845', pathInset: '#4a3858', pathBorder: '#5a4868',
     glowOuter: 'rgba(150,80,200,0.12)', glowInner: 'rgba(170,100,220,0.06)',
     startTile: '#2a4060', startInset: '#305070', endTile: '#602848', endInset: '#703058',
     accent: '#aa55ee', notifColor: '#aa55ee' },
   { name: 'CRIMSON', grass: '#10080a', grassTex: '#160c0e', gridLine: '#201012',
+    rock: '#1e1416', rockTex: '#2c2024',
     path: '#45282a', pathInset: '#583838', pathBorder: '#684848',
     glowOuter: 'rgba(200,80,80,0.12)', glowInner: 'rgba(220,100,100,0.06)',
     startTile: '#2a6040', startInset: '#308050', endTile: '#8a2020', endInset: '#a02828',
     accent: '#ee4444', notifColor: '#ee4444' },
   { name: 'VOID', grass: '#06060a', grassTex: '#0a0a10', gridLine: '#101018',
+    rock: '#141418', rockTex: '#222228',
     path: '#282830', pathInset: '#383840', pathBorder: '#484850',
     glowOuter: 'rgba(200,200,255,0.12)', glowInner: 'rgba(220,220,255,0.06)',
     startTile: '#1a3050', startInset: '#204060', endTile: '#501a1a', endInset: '#602020',
@@ -1049,6 +1070,8 @@ function lerpPalette(from, to, t) {
     grass: lerpHex(from.grass, to.grass, t),
     grassTex: lerpHex(from.grassTex, to.grassTex, t),
     gridLine: lerpHex(from.gridLine, to.gridLine, t),
+    rock: lerpHex(from.rock, to.rock, t),
+    rockTex: lerpHex(from.rockTex, to.rockTex, t),
     path: lerpHex(from.path, to.path, t),
     pathInset: lerpHex(from.pathInset, to.pathInset, t),
     pathBorder: lerpHex(from.pathBorder, to.pathBorder, t),
@@ -1099,14 +1122,39 @@ function draw() {
       const x = c * TILE, y = r * TILE;
       const inGrid = r >= 0 && r < MAP_ROWS && c >= 0 && c < MAP_COLS;
       const v = inGrid ? mapData[r][c] : 0;
-      if (v === 0) {
-        ctx.fillStyle = currentAtmosphere.grass;
+      if (v === 0 || v === 4) {
+        const isRock = v === 4;
+        ctx.fillStyle = isRock ? currentAtmosphere.rock : currentAtmosphere.grass;
         ctx.fillRect(x, y, TILE, TILE);
         ctx.strokeStyle = currentAtmosphere.gridLine; ctx.lineWidth = 0.5;
         ctx.strokeRect(x, y, TILE, TILE);
-        ctx.fillStyle = currentAtmosphere.grassTex;
-        ctx.fillRect(x + TILE*0.25, y + TILE*0.35, TILE*0.12, TILE*0.12);
-        ctx.fillRect(x + TILE*0.65, y + TILE*0.6, TILE*0.1, TILE*0.1);
+        ctx.fillStyle = isRock ? currentAtmosphere.rockTex : currentAtmosphere.grassTex;
+        if (isRock) {
+          // Stone shapes
+          ctx.beginPath();
+          ctx.moveTo(x+TILE*0.1,y+TILE*0.35); ctx.lineTo(x+TILE*0.2,y+TILE*0.15);
+          ctx.lineTo(x+TILE*0.45,y+TILE*0.12); ctx.lineTo(x+TILE*0.5,y+TILE*0.3);
+          ctx.lineTo(x+TILE*0.3,y+TILE*0.4); ctx.closePath(); ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(x+TILE*0.5,y+TILE*0.5); ctx.lineTo(x+TILE*0.6,y+TILE*0.38);
+          ctx.lineTo(x+TILE*0.85,y+TILE*0.42); ctx.lineTo(x+TILE*0.9,y+TILE*0.6);
+          ctx.lineTo(x+TILE*0.65,y+TILE*0.68); ctx.closePath(); ctx.fill();
+          ctx.beginPath();
+          ctx.moveTo(x+TILE*0.2,y+TILE*0.6); ctx.lineTo(x+TILE*0.35,y+TILE*0.55);
+          ctx.lineTo(x+TILE*0.5,y+TILE*0.7); ctx.lineTo(x+TILE*0.4,y+TILE*0.85);
+          ctx.lineTo(x+TILE*0.15,y+TILE*0.8); ctx.closePath(); ctx.fill();
+          // Highlight edges
+          ctx.strokeStyle = currentAtmosphere.gridLine;
+          ctx.lineWidth = 0.8;
+          ctx.beginPath();
+          ctx.moveTo(x+TILE*0.2,y+TILE*0.15); ctx.lineTo(x+TILE*0.45,y+TILE*0.12);
+          ctx.moveTo(x+TILE*0.6,y+TILE*0.38); ctx.lineTo(x+TILE*0.85,y+TILE*0.42);
+          ctx.moveTo(x+TILE*0.35,y+TILE*0.55); ctx.lineTo(x+TILE*0.5,y+TILE*0.7);
+          ctx.stroke();
+        } else {
+          ctx.fillRect(x + TILE*0.25, y + TILE*0.35, TILE*0.12, TILE*0.12);
+          ctx.fillRect(x + TILE*0.65, y + TILE*0.6, TILE*0.1, TILE*0.1);
+        }
       } else {
         ctx.fillStyle = v === 2 ? currentAtmosphere.startTile : v === 3 ? currentAtmosphere.endTile : currentAtmosphere.path;
         ctx.fillRect(x, y, TILE, TILE);
