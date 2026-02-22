@@ -42,14 +42,15 @@ HTML5 canvas tower defense game split across 3 files. No build tools, no depende
 
 ## Game Constants
 - Grid: 10 cols x 16 rows, tile size `TILE` computed from canvas
-- Starting gold: 300, starting lives: 30
+- Starting gold: 300, starting lives: 10
 - 4 tower types: gun (50g), cannon (100g), sniper (150g), frost (75g)
 - 6 enemy types: grunt, runner, tank, swarm, healer, boss (every 5 waves)
+- Kill reward base: `3.5 * 1.05` scaled by enemy type multiplier
 - Level-up every 10 waves (towers kept, gold bonus, +3 lives, atmosphere change)
 - Spawn interval: 600ms between enemies
 - Frost slow: 40% speed for 1500ms; Cannon splash: 50% damage in 35-unit radius
-- Wave completion bonus: `15 + floor(wave * 2)` gold
-- Level-up bonus: `100 + level * 25` gold, +3 lives (capped at 30)
+- Wave completion bonus: `10 + floor(wave * 1.5)` gold
+- Level-up bonus: `60 + level * 15` gold, +3 lives (capped at 10)
 
 ## Conventions
 - All game state is in module-level variables (no classes, no modules)
