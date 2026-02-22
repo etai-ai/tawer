@@ -541,95 +541,72 @@ function draw() {
     ctx.stroke();
   }
 
-  // --- SPAWN PORTAL VORTEX ---
-  if (spawnPortal.active && path.length > 0) {
-    const sp = spawnPortal;
-    const t = 1 - sp.life / sp.maxLife;
-    const intensity = sp.life > sp.maxLife * 0.8 ? (1 - (sp.life - sp.maxLife * 0.8) / (sp.maxLife * 0.2)) : (sp.life < sp.maxLife * 0.2 ? sp.life / (sp.maxLife * 0.2) : 1);
-    const px = path[0].x, py = path[0].y;
-    const portalR = TILE * (0.5 + 0.3 * Math.sin(gameTime * 0.003));
-
-    // Rotating arcs
-    ctx.save();
-    ctx.translate(px, py);
-    for (let ring = 0; ring < 3; ring++) {
-      const rot = gameTime * (0.002 + ring * 0.001) * (ring % 2 === 0 ? 1 : -1);
-      ctx.globalAlpha = intensity * (0.35 - ring * 0.08);
-      ctx.strokeStyle = ring === 0 ? currentAtmosphere.accent : ring === 1 ? '#ffffff' : '#ff4444';
-      ctx.lineWidth = 2.5 - ring * 0.5;
-      ctx.beginPath();
-      ctx.arc(0, 0, portalR * (1 + ring * 0.35), rot, rot + Math.PI * 1.3);
-      ctx.stroke();
-    }
-    // Core glow
-    ctx.globalAlpha = intensity * 0.4;
-    const portalGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, portalR * 0.8);
-    portalGrad.addColorStop(0, '#ffffff');
-    portalGrad.addColorStop(0.4, currentAtmosphere.accent);
-    portalGrad.addColorStop(1, 'transparent');
-    ctx.fillStyle = portalGrad;
-    ctx.beginPath(); ctx.arc(0, 0, portalR * 0.8, 0, Math.PI * 2); ctx.fill();
-    ctx.restore();
-    ctx.globalAlpha = 1;
-
-    // Portal light
-    if (Math.random() < 0.3) {
-      lightSources.push({ x: px, y: py, radius: TILE * 2, color: currentAtmosphere.accent, life: 100, maxLife: 100 });
-    }
+  // --- ALL SPAWN POINT MARKERS (unified style) ---
+  // Collect all spawn points: main + extras
+  const allSpawns = [];
+  if (path.length > 0) {
+    allSpawns.push({
+      x: path[0].x, y: path[0].y, color: '#00ff88',
+      portalActive: spawnPortal.active,
+      portalLife: spawnPortal.life, portalMaxLife: spawnPortal.maxLife,
+    });
   }
-
-  // --- EXTRA SPAWN PORTALS ---
   for (const esp of extraSpawnPoints) {
     if (!esp.path || esp.path.length < 1) continue;
-    const epx = esp.path[0].x, epy = esp.path[0].y;
+    allSpawns.push({
+      x: esp.path[0].x, y: esp.path[0].y, color: '#ff4444',
+      portalActive: esp.portalActive,
+      portalLife: esp.portalLife, portalMaxLife: esp.portalMaxLife,
+    });
+  }
 
-    // Always draw a static marker for the extra spawn point
+  for (const sp of allSpawns) {
+    // Static marker — pulsing glow + ring + arrow icon
     const markerPulse = Math.sin(gameTime * 0.003) * 0.15 + 0.35;
     ctx.globalAlpha = markerPulse;
-    const markerGrad = ctx.createRadialGradient(epx, epy, 0, epx, epy, TILE * 0.6);
-    markerGrad.addColorStop(0, '#ff2244');
+    const markerGrad = ctx.createRadialGradient(sp.x, sp.y, 0, sp.x, sp.y, TILE * 0.6);
+    markerGrad.addColorStop(0, sp.color);
     markerGrad.addColorStop(1, 'transparent');
     ctx.fillStyle = markerGrad;
-    ctx.beginPath(); ctx.arc(epx, epy, TILE * 0.6, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(sp.x, sp.y, TILE * 0.6, 0, Math.PI * 2); ctx.fill();
     ctx.globalAlpha = 0.6;
-    ctx.strokeStyle = '#ff4444';
+    ctx.strokeStyle = sp.color;
     ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.arc(epx, epy, TILE * 0.4, 0, Math.PI * 2); ctx.stroke();
-    // Skull/warning icon
-    ctx.globalAlpha = 0.7;
-    ctx.fillStyle = '#ff4444';
+    ctx.beginPath(); ctx.arc(sp.x, sp.y, TILE * 0.4, 0, Math.PI * 2); ctx.stroke();
+    // Center icon
+    ctx.globalAlpha = 0.8;
+    ctx.fillStyle = sp.color;
     ctx.font = `bold ${Math.max(8, TILE * 0.3)}px Orbitron, sans-serif`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('\u26A0', epx, epy);
+    ctx.fillText('\u25B6', sp.x, sp.y);
     ctx.globalAlpha = 1;
 
-    // Active portal vortex when enemies are spawning from here
-    if (esp.portalActive) {
-      const intensity = Math.min(1, esp.portalLife / (esp.portalMaxLife * 0.2), (esp.portalMaxLife - esp.portalLife + 1) / (esp.portalMaxLife * 0.2));
-      const portalR = TILE * (0.45 + 0.2 * Math.sin(gameTime * 0.004));
+    // Active portal vortex when wave is spawning from here
+    if (sp.portalActive) {
+      const intensity = Math.min(1, sp.portalLife / (sp.portalMaxLife * 0.2), (sp.portalMaxLife - sp.portalLife + 1) / (sp.portalMaxLife * 0.2));
+      const portalR = TILE * (0.5 + 0.3 * Math.sin(gameTime * 0.003));
       ctx.save();
-      ctx.translate(epx, epy);
-      for (let ring = 0; ring < 2; ring++) {
-        const rot = gameTime * (0.003 + ring * 0.002) * (ring % 2 === 0 ? 1 : -1);
-        ctx.globalAlpha = intensity * (0.5 - ring * 0.15);
-        ctx.strokeStyle = ring === 0 ? '#ff4444' : '#ff8844';
+      ctx.translate(sp.x, sp.y);
+      for (let ring = 0; ring < 3; ring++) {
+        const rot = gameTime * (0.002 + ring * 0.001) * (ring % 2 === 0 ? 1 : -1);
+        ctx.globalAlpha = intensity * (0.35 - ring * 0.08);
+        ctx.strokeStyle = ring === 0 ? sp.color : ring === 1 ? '#ffffff' : shadeColor(sp.color, -40);
         ctx.lineWidth = 2.5 - ring * 0.5;
         ctx.beginPath();
-        ctx.arc(0, 0, portalR * (1 + ring * 0.3), rot, rot + Math.PI * 1.2);
+        ctx.arc(0, 0, portalR * (1 + ring * 0.35), rot, rot + Math.PI * 1.3);
         ctx.stroke();
       }
-      ctx.globalAlpha = intensity * 0.5;
-      const epGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, portalR * 0.7);
-      epGrad.addColorStop(0, '#ffffff');
-      epGrad.addColorStop(0.4, '#ff4444');
-      epGrad.addColorStop(1, 'transparent');
-      ctx.fillStyle = epGrad;
-      ctx.beginPath(); ctx.arc(0, 0, portalR * 0.7, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = intensity * 0.4;
+      const pGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, portalR * 0.8);
+      pGrad.addColorStop(0, '#ffffff');
+      pGrad.addColorStop(0.4, sp.color);
+      pGrad.addColorStop(1, 'transparent');
+      ctx.fillStyle = pGrad;
+      ctx.beginPath(); ctx.arc(0, 0, portalR * 0.8, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
       ctx.globalAlpha = 1;
-      // Light
       if (Math.random() < 0.3) {
-        lightSources.push({ x: epx, y: epy, radius: TILE * 2, color: '#ff4444', life: 80, maxLife: 80 });
+        lightSources.push({ x: sp.x, y: sp.y, radius: TILE * 2, color: sp.color, life: 100, maxLife: 100 });
       }
     }
   }
@@ -1032,11 +1009,11 @@ function draw() {
   }
   ctx.globalAlpha = 1;
 
+  // End marker (exit point)
   if (path.length > 1) {
     const fs = Math.max(8, TILE*0.28);
     ctx.font = `bold ${fs}px Orbitron, sans-serif`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillStyle = '#00ff88'; ctx.fillText('\u25B6', path[0].x, path[0].y);
     ctx.fillStyle = '#ff4757'; ctx.fillText('\u25A0', path[path.length-1].x, path[path.length-1].y);
   }
 
