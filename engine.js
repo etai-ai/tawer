@@ -144,6 +144,8 @@ let mapShiftNotification = null;
 let mapShiftDelay = 0;
 let extraSpawnPoints = []; // [{entryR, entryC, path:[], portalActive, portalLife, portalMaxLife}]
 let spawnPointNotification = null; // notification for new spawn point
+let evolutionNotification = null; // {life, maxLife, tierName, tierIdx, phase}
+let evolutionVFX = []; // per-tower transformation effects {x, y, life, maxLife, oldColor, newColor}
 let selectedTower = 'gun';
 let selectedPlacedTower = null;
 let waveActive = false, waveSpawning = false, spawnQueue = [], spawnTimer = 0;
@@ -313,16 +315,25 @@ const SFX = {
     setTimeout(() => playTone(1600, 0.2, 'sine', 0.25), 350);
     setTimeout(() => { playTone(1600, 0.3, 'sine', 0.18); playTone(2000, 0.3, 'sine', 0.15); }, 500);
   },
+  evolution() {
+    // Dramatic ascending fanfare
+    setTimeout(() => { playTone(300, 0.2, 'sawtooth', 0.15); playNoise(0.15, 0.12); }, 0);
+    setTimeout(() => playTone(400, 0.2, 'sine', 0.2), 150);
+    setTimeout(() => playTone(500, 0.2, 'sine', 0.2), 300);
+    setTimeout(() => playTone(600, 0.2, 'sine', 0.22), 450);
+    setTimeout(() => { playTone(800, 0.3, 'sine', 0.25); playTone(1200, 0.3, 'sine', 0.15); }, 600);
+    setTimeout(() => { playTone(1000, 0.4, 'sine', 0.2); playTone(1500, 0.35, 'sine', 0.15); playNoise(0.2, 0.1); }, 800);
+  },
 };
 
 // --- HUD ---
 function updateHUD() {
-  document.getElementById('gold').textContent = Math.floor(gold);
+  document.getElementById('gold').textContent = gold;
   document.getElementById('lives').textContent = lives;
   document.getElementById('world-name').textContent = WORLDS[currentWorldIdx].name;
   document.getElementById('level').textContent = level;
   document.getElementById('wave').textContent = waveNum;
-  document.getElementById('score').textContent = Math.floor(score);
+  document.getElementById('score').textContent = score;
   document.querySelectorAll('.tower-btn').forEach(btn => {
     const cost = TOWER_DEFS[btn.dataset.type].cost;
     btn.classList.toggle('unaffordable', gold < cost);
@@ -519,6 +530,15 @@ canvas.addEventListener('touchstart', handleTap, { passive: false });
 canvas.addEventListener('click', handleTap);
 document.addEventListener('gesturestart', e => e.preventDefault());
 
+// --- CHEAT KEYS ---
+document.addEventListener('keydown', e => {
+  if (e.key === 'k' || e.key === 'K') {
+    for (const en of enemies) {
+      if (en.alive) damageEnemy(en, en.hp, 0);
+    }
+  }
+});
+
 // --- EXTRA SPAWN POINTS: from level 2+, enemies enter from additional map edges ---
 
 function buildPathFromEdge(startR, startC) {
@@ -651,6 +671,91 @@ function rebuildExtraSpawnPaths() {
     const newPath = buildPathFromEdge(esp.entryR, esp.entryC);
     if (newPath) esp.path = newPath;
   }
+}
+
+// --- TOWER EVOLUTION ---
+function refreshTowerBar() {
+  document.querySelectorAll('.tower-btn').forEach(btn => {
+    const type = btn.dataset.type;
+    const def = TOWER_DEFS[type];
+    if (!def) return;
+    const nameEl = btn.querySelector('.tname');
+    const costEl = btn.querySelector('.cost');
+    if (nameEl) nameEl.textContent = def.name || type.toUpperCase();
+    if (costEl) costEl.textContent = def.cost + 'g';
+    // Redraw icon
+    const cvs = btn.querySelector('.icon-canvas');
+    if (cvs && typeof drawTowerIcon === 'function') drawTowerIcon(cvs, type);
+  });
+  updateHUD();
+}
+
+function evolveTowers() {
+  const newTierIdx = currentTier + 1;
+  if (newTierIdx >= TOWER_TIERS.length) return;
+
+  const oldDefs = Object.assign({}, TOWER_DEFS);
+  const newTier = TOWER_TIERS[newTierIdx];
+  currentTier = newTierIdx;
+
+  // Swap global TOWER_DEFS
+  for (const type of ['gun', 'cannon', 'sniper', 'frost']) {
+    TOWER_DEFS[type] = newTier.defs[type];
+  }
+
+  // Transform all existing towers
+  for (const t of towers) {
+    const oldColor = t.color;
+    const newDef = TOWER_DEFS[t.type];
+
+    // Spawn evolution VFX on each tower
+    evolutionVFX.push({
+      x: t.x, y: t.y, life: 1500, maxLife: 1500,
+      oldColor: oldColor, newColor: newDef.color,
+    });
+
+    // Reset tower to level 1 with new tier stats
+    t.level = 1;
+    t.damage = newDef.damage;
+    t.range = newDef.range * (TILE / 40);
+    t.rate = newDef.rate;
+    t.color = newDef.color;
+    t.bullet = newDef.bullet;
+    t.bulletSpeed = newDef.bulletSpeed;
+    t.splash = newDef.splash;
+    t.slow = newDef.slow || 0;
+    t.cost = newDef.cost;
+
+    // VFX per tower — big particle burst
+    for (let i = 0; i < 16; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const spd = 1.5 + Math.random() * 3;
+      particles.push({
+        x: t.x, y: t.y,
+        vx: Math.cos(a) * spd, vy: Math.sin(a) * spd,
+        life: 600 + Math.random() * 400,
+        color: i % 2 === 0 ? oldColor : newDef.color,
+        size: TILE * (0.05 + Math.random() * 0.06)
+      });
+    }
+    // Light flash
+    lightSources.push({ x: t.x, y: t.y, radius: TILE * 3, color: newDef.color, life: 600, maxLife: 600 });
+  }
+
+  // Global VFX
+  screenShake.intensity = Math.max(screenShake.intensity, 8);
+  screenShake.decay = Math.max(screenShake.decay, 600);
+  SFX.evolution();
+
+  // Show evolution notification
+  evolutionNotification = {
+    life: 5000, maxLife: 5000,
+    tierName: newTier.tierName,
+    tierIdx: newTierIdx,
+  };
+
+  // Refresh tower bar UI
+  refreshTowerBar();
 }
 
 // --- WAVES ---
@@ -963,9 +1068,19 @@ function update(dt, ts) {
     if (spawnPointNotification.life <= 0) spawnPointNotification = null;
   }
 
+  // Evolution VFX
+  for (const ev of evolutionVFX) ev.life -= dt;
+  evolutionVFX = evolutionVFX.filter(ev => ev.life > 0);
+
+  // Evolution notification
+  if (evolutionNotification) {
+    evolutionNotification.life -= dt;
+    if (evolutionNotification.life <= 0) evolutionNotification = null;
+  }
+
   if (waveActive && !waveSpawning && spawnQueue.length === 0 && enemies.length === 0) {
     waveActive = false;
-    gold += Math.floor(BALANCE.waveGoldBase + waveNum * BALANCE.waveGoldScaling);
+    gold += BALANCE.waveGoldBase + Math.floor(waveNum * BALANCE.waveGoldScaling);
     SFX.waveComplete();
     updateHUD();
     document.getElementById('start-btn').disabled = false;
@@ -1022,7 +1137,7 @@ function levelUp() {
   level++;
   SFX.levelUp();
   const palIdx = Math.min(level - 1, ATMOSPHERE_PALETTES.length - 1);
-  const bonus = Math.floor(BALANCE.levelUpGoldBase + level * BALANCE.levelUpGoldScaling);
+  const bonus = BALANCE.levelUpGoldBase + level * BALANCE.levelUpGoldScaling;
   gold += bonus;
   lives = Math.min(lives + BALANCE.livesPerLevelUp, BALANCE.maxLives);
   // Trigger atmosphere transition
@@ -1044,6 +1159,14 @@ function levelUp() {
   const hasNewSpawn = level >= 2;
   mapShiftNotification = { life: 4500, maxLife: 4500, level, bonus, palName, hasNewSpawn };
   mapShiftDelay = 4500;
+
+  // Tower evolution at specific levels
+  if (EVOLUTION_LEVELS.includes(level)) {
+    setTimeout(() => {
+      if (!gameOver) evolveTowers();
+    }, 2000); // after spawn point appears, dramatic reveal
+    mapShiftDelay = Math.max(mapShiftDelay, 7000); // extend pause for evolution
+  }
 }
 
 function damageEnemy(e, dmg, slow) {
@@ -1154,6 +1277,11 @@ document.getElementById('restart-btn').addEventListener('click', e => {
   waveActive = false; waveSpawning = false; spawnQueue = []; gameOver = false;
   selectedPlacedTower = null; mapShiftNotification = null; mapShiftDelay = 0;
   extraSpawnPoints = []; spawnPointNotification = null;
+  evolutionNotification = null; evolutionVFX = [];
+  currentTier = 0;
+  for (const type of ['gun', 'cannon', 'sniper', 'frost']) {
+    TOWER_DEFS[type] = TOWER_TIERS[0].defs[type];
+  }
   gameSpeed = 1; autoMode = true; gameTime = 0;
   currentAtmosphere = copyPalette(ATMOSPHERE_PALETTES[0]);
   fromAtmosphere = null; targetAtmosphere = null;
@@ -1176,4 +1304,5 @@ document.getElementById('restart-btn').addEventListener('click', e => {
   document.getElementById('record-stars').textContent = '';
   document.getElementById('start-btn').disabled = false;
   updateHUD();
+  refreshTowerBar();
 });
