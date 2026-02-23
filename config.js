@@ -306,9 +306,18 @@ function lerpHex(a, b, t) {
   return '#' + ((1<<24)|(r<<16)|(g<<8)|bl).toString(16).slice(1);
 }
 
+// Pre-parsed rgba cache to avoid regex per frame
+const _rgbaCache = new Map();
+function _parseRgba(s) {
+  let v = _rgbaCache.get(s);
+  if (v) return v;
+  const m = s.match(/[\d.]+/g);
+  v = [+m[0], +m[1], +m[2], +m[3]];
+  _rgbaCache.set(s, v);
+  return v;
+}
 function lerpRgba(a, b, t) {
-  const pa = a.match(/[\d.]+/g).map(Number);
-  const pb = b.match(/[\d.]+/g).map(Number);
+  const pa = _parseRgba(a), pb = _parseRgba(b);
   const r = Math.round(pa[0]+(pb[0]-pa[0])*t);
   const g = Math.round(pa[1]+(pb[1]-pa[1])*t);
   const bl = Math.round(pa[2]+(pb[2]-pa[2])*t);

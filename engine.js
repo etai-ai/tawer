@@ -1061,6 +1061,11 @@ function update(dt, ts) {
   particles = particles.filter(p => p.life > 0);
   placeEffects = placeEffects.filter(pe => pe.life > 0);
 
+  // Cap arrays for mobile performance
+  if (particles.length > 150) particles.length = 150;
+  if (trailParticles.length > 100) trailParticles.length = 100;
+  if (lightSources.length > 20) lightSources.length = 20;
+
   // Extra spawn portals
   for (const esp of extraSpawnPoints) {
     if (esp.portalActive) {

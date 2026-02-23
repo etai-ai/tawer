@@ -11,18 +11,6 @@
 </head>
 <body>
 
-<!-- Records modal (outside game-wrapper for iOS position:fixed compatibility) -->
-<div id="records-overlay">
-  <div id="records-modal">
-    <h2>RECORDS</h2>
-    <div id="records-list"></div>
-    <div id="records-actions">
-      <button id="clear-records-btn">CLEAR ALL</button>
-      <button id="close-records-btn">CLOSE</button>
-    </div>
-  </div>
-</div>
-
 <div id="game-wrapper">
   <div id="top-bar">
     <h1>TAWER</h1>
@@ -38,6 +26,18 @@
       <div class="hud-row">
         <div class="hud-item"><span class="hud-label">WAVE</span><span class="hud-value wave-val" id="wave">0</span></div>
         <div class="hud-item"><span class="hud-label">SCORE</span><span class="hud-value score-val" id="score">0</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Records modal -->
+  <div id="records-overlay">
+    <div id="records-modal">
+      <h2>RECORDS</h2>
+      <div id="records-list"></div>
+      <div id="records-actions">
+        <button id="clear-records-btn">CLEAR ALL</button>
+        <button id="close-records-btn">CLOSE</button>
       </div>
     </div>
   </div>

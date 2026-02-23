@@ -563,12 +563,9 @@ function draw() {
   for (const sp of allSpawns) {
     // Static marker — pulsing glow + ring + arrow icon
     const markerPulse = Math.sin(gameTime * 0.003) * 0.15 + 0.35;
-    ctx.globalAlpha = markerPulse;
-    const markerGrad = ctx.createRadialGradient(sp.x, sp.y, 0, sp.x, sp.y, TILE * 0.6);
-    markerGrad.addColorStop(0, sp.color);
-    markerGrad.addColorStop(1, 'transparent');
-    ctx.fillStyle = markerGrad;
-    ctx.beginPath(); ctx.arc(sp.x, sp.y, TILE * 0.6, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = markerPulse * 0.4;
+    ctx.fillStyle = sp.color;
+    ctx.beginPath(); ctx.arc(sp.x, sp.y, TILE * 0.5, 0, Math.PI * 2); ctx.fill();
     ctx.globalAlpha = 0.6;
     ctx.strokeStyle = sp.color;
     ctx.lineWidth = 1.5;
@@ -596,18 +593,11 @@ function draw() {
         ctx.arc(0, 0, portalR * (1 + ring * 0.35), rot, rot + Math.PI * 1.3);
         ctx.stroke();
       }
-      ctx.globalAlpha = intensity * 0.4;
-      const pGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, portalR * 0.8);
-      pGrad.addColorStop(0, '#ffffff');
-      pGrad.addColorStop(0.4, sp.color);
-      pGrad.addColorStop(1, 'transparent');
-      ctx.fillStyle = pGrad;
-      ctx.beginPath(); ctx.arc(0, 0, portalR * 0.8, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = intensity * 0.3;
+      ctx.fillStyle = sp.color;
+      ctx.beginPath(); ctx.arc(0, 0, portalR * 0.5, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
       ctx.globalAlpha = 1;
-      if (Math.random() < 0.3) {
-        lightSources.push({ x: sp.x, y: sp.y, radius: TILE * 2, color: sp.color, life: 100, maxLife: 100 });
-      }
     }
   }
 
@@ -620,12 +610,9 @@ function draw() {
     const alpha = Math.min(fadeIn, fadeOut) * ambientAlphaScale;
     ctx.globalAlpha = alpha;
     ctx.fillStyle = currentAtmosphere.accent;
-    ctx.shadowColor = currentAtmosphere.accent;
-    ctx.shadowBlur = level >= 5 ? 6 : 0;
     ctx.beginPath(); ctx.arc(ap.x, ap.y, ap.size * (1 + Math.min(level-1, 9) * 0.1), 0, Math.PI * 2); ctx.fill();
   }
   ctx.globalAlpha = 1;
-  ctx.shadowBlur = 0;
 
   for (const t of towers) {
     const sel = t === selectedPlacedTower;
@@ -637,24 +624,21 @@ function draw() {
     ctx.lineWidth = sel ? 1.5 : 0.5;
     ctx.beginPath(); ctx.arc(t.x, t.y, t.range, 0, Math.PI*2); ctx.stroke();
 
-    // Ambient ground glow (contained within cell)
+    // Ambient ground glow (simple circle, no gradient for mobile perf)
     if (lvl >= 2) {
-      const glowR = TILE * 0.45;
-      const glowAlpha = lvl >= 3 ? 0.25 + 0.10 * pulse : 0.12 + 0.05 * pulse;
-      const grad = ctx.createRadialGradient(t.x, t.y, TILE * 0.15, t.x, t.y, glowR);
-      grad.addColorStop(0, t.color + Math.round(glowAlpha * 255).toString(16).padStart(2, '0'));
-      grad.addColorStop(1, t.color + '00');
-      ctx.fillStyle = grad;
-      ctx.beginPath(); ctx.arc(t.x, t.y, glowR, 0, Math.PI*2); ctx.fill();
+      const glowAlpha = lvl >= 3 ? 0.15 + 0.06 * pulse : 0.08 + 0.03 * pulse;
+      ctx.globalAlpha = glowAlpha;
+      ctx.fillStyle = t.color;
+      ctx.beginPath(); ctx.arc(t.x, t.y, TILE * 0.4, 0, Math.PI*2); ctx.fill();
+      ctx.globalAlpha = 1;
     }
 
-    // Outer glow halo for level 3 (shadow blur only, no extra radius)
+    // Outer glow halo for level 3 (simple ring, no shadowBlur for mobile perf)
     if (lvl >= 3) {
-      ctx.save();
-      ctx.shadowColor = t.color; ctx.shadowBlur = 14 + 4 * pulse;
-      ctx.strokeStyle = t.color + '70'; ctx.lineWidth = 2.5;
+      ctx.globalAlpha = 0.25 + 0.1 * pulse;
+      ctx.strokeStyle = t.color; ctx.lineWidth = 4;
       ctx.beginPath(); ctx.arc(t.x, t.y, TILE*0.38, 0, Math.PI*2); ctx.stroke();
-      ctx.restore();
+      ctx.globalAlpha = 1;
     }
 
     // Concentric upgrade rings (tight around base)
@@ -674,7 +658,7 @@ function draw() {
     else if (t.type === 'sniper') drawSniperTower(ctx, t, lvl, pulse, baseR, sel, TILE, enemies, gameTime);
     else if (t.type === 'frost') drawFrostTower(ctx, t, lvl, pulse, baseR, sel, TILE, gameTime);
 
-    // Muzzle flash (type-agnostic)
+    // Muzzle flash (type-agnostic, no shadowBlur for mobile perf)
     if ((t.muzzleFlash || 0) > 0.1) {
       const mf = t.muzzleFlash;
       const recoilOff = (t.recoil || 0) * TILE * 0.12;
@@ -682,15 +666,12 @@ function draw() {
       const mfx = t.x + Math.cos(t.angle) * (bLen + TILE * 0.05);
       const mfy = t.y + Math.sin(t.angle) * (bLen + TILE * 0.05);
       const flashR = TILE * 0.15 * mf;
-      ctx.save();
+      ctx.globalAlpha = mf * 0.5;
+      ctx.fillStyle = t.color;
+      ctx.beginPath(); ctx.arc(mfx, mfy, flashR * 1.5, 0, Math.PI * 2); ctx.fill();
       ctx.globalAlpha = mf * 0.9;
-      ctx.shadowColor = t.color; ctx.shadowBlur = 15 * mf;
-      const flashGrad = ctx.createRadialGradient(mfx, mfy, 0, mfx, mfy, flashR);
-      flashGrad.addColorStop(0, '#ffffff');
-      flashGrad.addColorStop(0.3, t.color);
-      flashGrad.addColorStop(1, 'transparent');
-      ctx.fillStyle = flashGrad;
-      ctx.beginPath(); ctx.arc(mfx, mfy, flashR, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.arc(mfx, mfy, flashR * 0.6, 0, Math.PI * 2); ctx.fill();
       ctx.strokeStyle = '#ffffff';
       ctx.globalAlpha = mf * 0.6;
       ctx.lineWidth = 1;
@@ -701,19 +682,17 @@ function draw() {
         ctx.lineTo(mfx + Math.cos(fAngle) * fLen, mfy + Math.sin(fAngle) * fLen);
         ctx.stroke();
       }
-      ctx.restore();
+      ctx.globalAlpha = 1;
     }
 
     // Level indicator pips (inside base, below center)
     if (lvl >= 2) {
       ctx.fillStyle = '#ffd700';
-      ctx.shadowColor = '#ffd700'; ctx.shadowBlur = 3;
       for (let i = 0; i < lvl - 1; i++) {
         const px = t.x - (lvl - 2) * TILE * 0.06 + i * TILE * 0.12;
         const py = t.y + TILE * 0.18;
         ctx.beginPath(); ctx.arc(px, py, TILE * 0.035, 0, Math.PI * 2); ctx.fill();
       }
-      ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
     }
 
     // Upgrade cost label when selected and upgradeable
@@ -760,9 +739,11 @@ function draw() {
     ctx.fillStyle = 'rgba(0,0,0,0.25)';
     ctx.beginPath(); ctx.ellipse(e.x + 1, e.y + 2, r * 0.9, r * 0.4, 0, 0, Math.PI * 2); ctx.fill();
 
-    // Outer glow
-    ctx.shadowColor = baseColor;
-    ctx.shadowBlur = e.isBoss ? 10 : 5;
+    // Outer glow (simple circle, no shadowBlur for mobile perf)
+    ctx.globalAlpha = 0.2;
+    ctx.fillStyle = baseColor;
+    ctx.beginPath(); ctx.arc(e.x, e.y, r * (e.isBoss ? 1.8 : 1.4), 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
 
     ctx.lineWidth = e.isBoss ? 2.5 : 1.5;
 
@@ -868,8 +849,6 @@ function draw() {
       ctx.beginPath(); ctx.arc(e.x, e.y, r * 0.25 * pulse, 0, Math.PI * 2); ctx.fill();
     }
 
-    ctx.shadowBlur = 0;
-
     // Hit flash overlay
     if (e.hitFlash > 0.1) {
       ctx.globalAlpha = e.hitFlash * 0.7;
@@ -891,18 +870,16 @@ function draw() {
   for (const b of bullets) {
     if (!b.alive) continue;
     const bt = b.towerType || 'gun';
-    ctx.shadowColor = b.color; ctx.shadowBlur = 6;
 
     if (bt === 'cannon') {
-      // Cannon: larger fiery orb
+      // Cannon: larger fiery orb (no gradient for perf)
       const cSz = bSz * 2;
-      const grad = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, cSz);
-      grad.addColorStop(0, '#ffee88');
-      grad.addColorStop(0.4, b.color);
-      grad.addColorStop(1, 'transparent');
-      ctx.fillStyle = grad;
+      ctx.globalAlpha = 0.5;
+      ctx.fillStyle = b.color;
       ctx.beginPath(); ctx.arc(b.x, b.y, cSz, 0, Math.PI*2); ctx.fill();
-      // Core
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#ffee88';
+      ctx.beginPath(); ctx.arc(b.x, b.y, bSz, 0, Math.PI*2); ctx.fill();
       ctx.fillStyle = '#ffffff';
       ctx.beginPath(); ctx.arc(b.x, b.y, bSz * 0.5, 0, Math.PI*2); ctx.fill();
     } else if (bt === 'sniper') {
@@ -946,7 +923,6 @@ function draw() {
       ctx.fillStyle = '#ffffff88';
       ctx.beginPath(); ctx.arc(b.x, b.y, bSz * 0.4, 0, Math.PI*2); ctx.fill();
     }
-    ctx.shadowBlur = 0;
   }
 
   // --- TRAIL PARTICLES (lightweight, no velocity) ---
@@ -966,14 +942,16 @@ function draw() {
   }
   ctx.globalAlpha = 1;
 
-  // --- ADDITIVE LIGHTING PASS ---
-  if (lightSources.length > 0 || towers.length > 0) {
+  // --- ADDITIVE LIGHTING PASS (capped for mobile perf) ---
+  if (lightSources.length > 0) {
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
-    for (const ls of lightSources) {
+    // Only render up to 12 light sources to avoid gradient spam on mobile
+    const maxLights = Math.min(lightSources.length, 12);
+    for (let li = 0; li < maxLights; li++) {
+      const ls = lightSources[li];
       const t = ls.life / ls.maxLife;
-      const alpha = t * 0.2;
-      ctx.globalAlpha = alpha;
+      ctx.globalAlpha = t * 0.2;
       const grad = ctx.createRadialGradient(ls.x, ls.y, 0, ls.x, ls.y, ls.radius * t);
       grad.addColorStop(0, ls.color);
       grad.addColorStop(0.3, ls.color + '44');
@@ -981,10 +959,10 @@ function draw() {
       ctx.fillStyle = grad;
       ctx.beginPath(); ctx.arc(ls.x, ls.y, ls.radius * t, 0, Math.PI * 2); ctx.fill();
     }
-    // Tower ambient lights (always-on subtle glow)
+    // Tower ambient lights — only for towers that just fired (skip idle)
     for (const tw of towers) {
-      const twAlpha = 0.04 + ((tw.muzzleFlash || 0) * 0.12);
-      ctx.globalAlpha = twAlpha;
+      if ((tw.muzzleFlash || 0) < 0.1) continue;
+      ctx.globalAlpha = (tw.muzzleFlash || 0) * 0.12;
       const twR = TILE * 1.5;
       const twGrad = ctx.createRadialGradient(tw.x, tw.y, 0, tw.x, tw.y, twR);
       twGrad.addColorStop(0, tw.color);
@@ -1001,11 +979,9 @@ function draw() {
     const t = ft.life / ft.maxLife;
     ctx.globalAlpha = t;
     ctx.fillStyle = ft.color;
-    ctx.shadowColor = ft.color; ctx.shadowBlur = 4;
     ctx.font = `bold ${Math.max(9, TILE * 0.28)}px 'Share Tech Mono', monospace`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(ft.text, ft.x, ft.y);
-    ctx.shadowBlur = 0;
   }
   ctx.globalAlpha = 1;
 
@@ -1036,13 +1012,10 @@ function draw() {
     ctx.fillRect(0, H * 0.7 - 2, W, 2);
     // "LEVEL X" big
     ctx.globalAlpha = alpha;
-    ctx.shadowColor = currentAtmosphere.notifColor;
-    ctx.shadowBlur = 20;
     ctx.fillStyle = currentAtmosphere.notifColor;
     ctx.font = `bold ${Math.max(20, TILE * 0.9)}px Orbitron, sans-serif`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(`LEVEL ${ms.level}`, W / 2, H * 0.42);
-    ctx.shadowBlur = 0;
     // Atmosphere name
     ctx.fillStyle = currentAtmosphere.accent;
     ctx.font = `bold ${Math.max(14, TILE * 0.5)}px Orbitron, sans-serif`;
@@ -1057,6 +1030,89 @@ function draw() {
       ctx.font = `bold ${Math.max(10, TILE * 0.3)}px 'Share Tech Mono', monospace`;
       ctx.fillText('\u26A0 NEW SPAWN POINT!', W / 2, H * 0.68);
     }
+    ctx.restore();
+  }
+
+  // --- EVOLUTION VFX (per tower, no gradient for mobile perf) ---
+  for (const ev of evolutionVFX) {
+    const t = 1 - ev.life / ev.maxLife; // 0→1
+    const alpha = ev.life / ev.maxLife;
+    // Expanding ring
+    ctx.strokeStyle = ev.newColor;
+    ctx.globalAlpha = alpha * 0.7;
+    ctx.lineWidth = 3 * (1 - t);
+    ctx.beginPath(); ctx.arc(ev.x, ev.y, TILE * 1.8 * t, 0, Math.PI * 2); ctx.stroke();
+    // Inner flash (simple circle)
+    ctx.globalAlpha = alpha * 0.3;
+    ctx.fillStyle = ev.newColor;
+    ctx.beginPath(); ctx.arc(ev.x, ev.y, TILE * 0.4 * (1 - t * 0.5), 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  // --- EVOLUTION NOTIFICATION ---
+  if (evolutionNotification) {
+    const en = evolutionNotification;
+    const t = en.life / en.maxLife; // 1→0
+    const alpha = t < 0.12 ? t / 0.12 : t > 0.82 ? (1 - t) / 0.18 : 1;
+
+    ctx.save();
+    // Full-screen dark overlay
+    ctx.globalAlpha = alpha * 0.92;
+    ctx.fillStyle = '#050608';
+    ctx.fillRect(0, H * 0.15, W, H * 0.7);
+
+    // Accent lines — tier-colored
+    const evoColor = en.tierIdx >= 3 ? '#ffdd44' : en.tierIdx >= 2 ? '#ff8844' : '#44ddff';
+    ctx.fillStyle = evoColor;
+    ctx.globalAlpha = alpha * 0.8;
+    ctx.fillRect(0, H * 0.15, W, 3);
+    ctx.fillRect(0, H * 0.85 - 3, W, 3);
+
+    // Animated scan line
+    const scanY = H * 0.15 + (H * 0.7) * ((Date.now() * 0.001) % 1);
+    ctx.globalAlpha = alpha * 0.12;
+    ctx.fillStyle = evoColor;
+    ctx.fillRect(0, scanY, W, 2);
+
+    // "⚡ TOWER EVOLUTION ⚡"
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = evoColor;
+    ctx.font = `bold ${Math.max(14, TILE * 0.55)}px Orbitron, sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('\u26A1 TOWER EVOLUTION \u26A1', W / 2, H * 0.28);
+
+    // Tier name
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `bold ${Math.max(20, TILE * 0.9)}px Orbitron, sans-serif`;
+    ctx.fillText(en.tierName, W / 2, H * 0.39);
+
+    // Tower name evolutions
+    ctx.font = `bold ${Math.max(10, TILE * 0.32)}px 'Share Tech Mono', monospace`;
+    const prevTier = en.tierIdx > 0 ? TOWER_TIERS[en.tierIdx - 1] : TOWER_TIERS[0];
+    const newTier = TOWER_TIERS[en.tierIdx];
+    const types = ['gun', 'cannon', 'sniper', 'frost'];
+    for (let i = 0; i < 4; i++) {
+      const oldName = prevTier.defs[types[i]].name;
+      const newName = newTier.defs[types[i]].name;
+      const newCol = newTier.defs[types[i]].color;
+      const yPos = H * 0.50 + i * (TILE * 0.42 + 3);
+      ctx.fillStyle = '#556677';
+      ctx.textAlign = 'right';
+      ctx.fillText(oldName, W / 2 - TILE * 0.3, yPos);
+      ctx.fillStyle = evoColor;
+      ctx.textAlign = 'center';
+      ctx.fillText('\u2192', W / 2, yPos);
+      ctx.fillStyle = newCol;
+      ctx.textAlign = 'left';
+      ctx.fillText(newName, W / 2 + TILE * 0.3, yPos);
+    }
+
+    // Reset warning
+    ctx.fillStyle = '#ff8844';
+    ctx.font = `${Math.max(9, TILE * 0.25)}px 'Share Tech Mono', monospace`;
+    ctx.textAlign = 'center';
+    ctx.fillText('TOWERS RESET TO LV.1', W / 2, H * 0.50 + 4 * (TILE * 0.42 + 3) + TILE * 0.3);
+
     ctx.restore();
   }
 
