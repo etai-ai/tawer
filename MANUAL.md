@@ -1,185 +1,109 @@
-# TAWER - Player Manual
+# TAWER — Tower Defense Game
 
-## How to Play
+## Overview
+HTML5 canvas tower defense game split across 3 files + config. No build tools, no dependencies, no frameworks.
 
-TAWER is an endless tower defense game. Place towers along the path to destroy waves of enemies before they reach the exit. Survive as long as you can.
+## Architecture
+- **`index.html`**: HTML structure (canvas, HUD, tower buttons, records modal, game-over overlay)
+- **`style.css`**: All CSS styles, modal styles, and responsive media queries
+- **`config.js`**: Data definitions & pure utilities (loaded first, no DOM access)
+- **`engine.js`**: Game state, logic, sound, UI handlers (loaded second)
+- **`render.js`**: Drawing & game loop (loaded third)
+- **Rendering**: HTML5 Canvas 2D (id: `game-canvas`)
+- **UI**: DOM-based HUD overlay on top of canvas (tower bar, wave controls, stats)
+- **Fonts**: Orbitron (headings), Share Tech Mono (monospace UI)
+- **Mobile**: Full touch support, responsive, PWA-capable meta tags
 
-### Getting Started
+## Key Code Sections
 
-- You start with **300 gold** and **10 lives**
-- A random map is selected each game
-- Waves auto-start by default (AUTO mode)
-- Click **START** to begin the first wave
+### config.js — Data & Utilities
+- `BALANCE` object — all game balance constants (gold, HP, speed, rewards, upgrades, etc.)
+- `WORLDS` array (map data, 10x16 grid, 2 handcrafted maps: SPIRAL, FORTRESS)
+- Random map generator: `mulberry32` (seeded PRNG), `generateRandomMap(seed, strategy)` — 4 strategies (serpentine, switchback, winding, comb), BFS validation, dead-end pruning, min path length 50
+- 4 generated worlds appended to WORLDS: LABYRINTH, GAUNTLET, CRUCIBLE, VORTEX (fixed seeds for reproducible records)
+- Total 6 maps: 2 handcrafted + 4 procedurally generated
+- `TOWER_TIERS` array — 4 evolution tiers (STANDARD, ADVANCED, ELITE, LEGENDARY), each with 4 tower defs
+- `EVOLUTION_LEVELS` — levels that trigger tower evolution [5, 10, 15]
+- `TOWER_DEFS` — active tower type definitions (swapped on evolution)
+- `ENEMY_TYPES` — enemy type definitions (grunt, runner, tank, swarm, healer, boss)
+- `ATMOSPHERE_PALETTES` — 10 level atmosphere color palettes (rock colors boosted for dark visibility)
+- Helper functions: `shadeColor`, `lerpHex`, `lerpRgba` (with `_rgbaCache` for perf), `copyPalette`, `lerpPalette`
+- `loadBestScores`, `saveBestScore` (localStorage)
 
-### Placing Towers
+### engine.js — State, Logic, Sound, UI
+- Canvas/wrapper references, map variables & functions (padMap, scatterRocks, resize, buildPath)
+- Game state variables (gold, lives, score, towers, enemies, bullets, particles, etc.)
+- Extra spawn points system (`extraSpawnPoints`, `buildPathFromEdge`, `findExtraSpawnCandidates`, `addExtraSpawnPoint`, `rebuildExtraSpawnPaths`) — from level 2+, enemies enter from additional map edges via path-only BFS routing
+- Atmosphere state & ambient particles
+- Sound engine (Web Audio, procedural SFX)
+- HUD updates, UI event handlers (tower selection, speed/auto/sound buttons, hover/touch, canvas tap)
+- Records modal (`openRecords`, click on "TAWER" title to open, clear records button)
+- Tower evolution system (`evolveTowers`, `refreshTowerBar`, `currentTier`) — resets towers to L1 with new tier stats at levels 5/10/15
+- Evolution notification with `evolutionWaiting` — pauses game until player taps "TAP TO CONTINUE"
+- Game logic: startWave, getWaveComposition, spawnEnemy, update, levelUp, damageEnemy, endGame
+- Tower animated state: `scannerAngle`, `smokeTimer`, `crystalPhase` (updated per frame in tower loop)
+- Cannon L3 idle smoke wisps (spawns trail particles every 3s)
+- Cheat keys: K (kill all mobs), G (+1000 gold), L (skip to next level)
+- Particle/array caps for mobile perf: particles (150), trail particles (100), light sources (20)
+- Restart handler
 
-1. Select a tower type from the bottom bar (GUN, CANNON, SNIPER, or FROST)
-2. Hover over the map to preview placement — a range ring shows the tower's reach
-3. Click/tap a **grass tile** to place the tower
-4. Tower buttons gray out when you can't afford them
+### render.js — Drawing & Game Loop
+- **Tower icon functions**: `drawGunIcon`, `drawCannonIcon`, `drawSniperIcon`, `drawFrostIcon` — type-specific icons for tower bar buttons
+- **`drawTowerIcon`** — dispatcher to icon functions, shared range ring + glow
+- **In-game tower draw functions** (called per tower per frame):
+  - `drawGunTower` — hexagonal base, barrel with cooling ridges (2/3/4 by level), L2+ rotating scanner dot, L3 energy core gradient + scanner trail
+  - `drawCannonTower` — rounded rect base with armor plate lines, T-shaped muzzle brake, ammo feeds, L2+ loading mechanism with recoil, L3 corner reinforcements + inner glow
+  - `drawSniperTower` — diamond base (rotates with aim), extra-long barrel, scope lens, tripod struts (L3 dog-leg), L2 dashed laser sight, L3 solid laser + impact dot + scope halo
+  - `drawFrostTower` — 6-pointed crystalline star base, floating rotating diamond crystal, frost mist dots (animated at L3), L3 aurora arc + crystal glow, L2+ orbiting ice shards (2→3), L3 shard trails
+- **Tower draw loop** in `draw()` — type dispatcher for base/barrel/center, shared range ring, ground glow, L3 halo, upgrade rings, muzzle flash, level pips, cost labels
+- **Ghost preview** — type-specific shapes (hex/roundrect/diamond/crystal) instead of generic circle
+- **Spawn point markers** — unified style for main + extra spawns (pulsing glow, ring, arrow, portal vortex)
+- **Rock tiles** — organic wobbly boulders (seeded per tile), no grid lines, grass base shows through
+- `draw()` function (all canvas rendering)
+- `gameLoop` function
+- Init: resize listener, first resize, updateHUD, requestAnimationFrame
 
-### Upgrading Towers
+## Game Constants
+All balance numbers live in the `BALANCE` object in `config.js`. Key values:
+- Grid: 10 cols x 16 rows, tile size `TILE` computed from canvas
+- Starting gold: 300, starting lives: 10
+- 4 tower types: gun (50g), cannon (100g), sniper (150g), frost (75g)
+- 6 enemy types: grunt, runner, tank, swarm, healer, boss (every 5 waves)
+- Kill reward base: `3.675 * 1.546` scaled by enemy type multiplier
+- Mob count multiplier: 0.57528; HP multiplier: 1.1
+- Level-up every 10 waves (towers kept, gold bonus, +3 lives, atmosphere change, extra spawn point from L2+)
+- Tower evolution at levels 5, 10, 15 (ADVANCED, ELITE, LEGENDARY tiers)
+- Spawn interval: 600ms between enemies
+- Speed multiplier: 0.8145 (applies to all enemy speeds)
+- Tank: speedMul 0.51, hpMul 3.0 (slow and beefy)
+- Frost slow: 40% speed for 1500ms; Cannon splash: 50% damage in 35-unit radius
+- Wave completion bonus: `10.5 + floor(wave * 1.575)` gold
+- Level-up bonus: `63 + level * 15.75` gold, +3 lives (capped at 10)
+- Extra spawn points: ~35% of mobs per extra spawn routed there (same total count, split across entrances)
 
-- Tap a placed tower to select it — its range ring is shown
-- If upgradeable (level < 3), the upgrade cost is displayed above the tower
-- Tap again to upgrade (costs **50% of the tower's base price** per level)
-- Towers can reach **level 3** (MAX), gaining +25% damage, +10% range, and 10% faster fire rate per level
-- Tap a selected tower again to deselect
+## Tower Visual Progression
 
-### Controls
+| Feature | L1 | L2 | L3 |
+|---|---|---|---|
+| Gun ridges | 2 | 3 | 4 + energy core |
+| Gun scanner | — | Rotating dot | Dot + trail |
+| Cannon armor lines | 2 | 3 + loader | 3 + corners + glow |
+| Cannon smoke | — | — | Idle wisps |
+| Sniper laser | — | Dashed | Solid + impact dot |
+| Sniper struts | Plain | + feet | Dog-leg + feet |
+| Frost shards | 0 | 2 orbiting | 3 + trails |
+| Frost mist | Static dots | Static dots | Animated drift + aurora |
 
-| Control | Action |
-|---------|--------|
-| Click/tap tower button | Select tower type to place |
-| Click/tap grass tile | Place selected tower |
-| Click/tap placed tower | Select/upgrade tower |
-| **START** | Begin next wave (when not in AUTO) |
-| **AUTO / MANUAL** | Toggle automatic wave progression |
-| **1X / 2X / 3X / 4X** | Cycle game speed |
-
-Touch controls are fully supported on mobile.
-
----
-
-## Towers
-
-| Tower | Cost | Damage | Range | Fire Rate | Special |
-|-------|------|--------|-------|-----------|---------|
-| **GUN** | 50g | 12 | 110 | Fast (450ms) | Single target, reliable all-rounder |
-| **CANNON** | 100g | 40 | 95 | Slow (1100ms) | **Splash damage** in a 35-unit radius (50% to nearby) |
-| **SNIPER** | 150g | 65 | 220 | Very slow (1800ms) | Longest range, highest single-target damage |
-| **FROST** | 75g | 5 | 110 | Very fast (350ms) | **Slows enemies to 40% speed** for 1.5s |
-
-### Tower Tips
-
-- **GUN** is your bread and butter — cheap, fast, and effective early on
-- **CANNON** excels against swarms with its area-of-effect splash
-- **SNIPER** is the boss killer — massive damage from extreme range
-- **FROST** is a force multiplier — place it where enemies pass by other towers to maximize their damage
-
-All towers target the closest enemy within range.
-
----
-
-## Enemies
-
-| Enemy | Shape | Speed | HP | Reward | First Appears |
-|-------|-------|-------|-----|--------|---------------|
-| **Grunt** | Green Circle | Normal | Normal | Normal | Wave 1 |
-| **Runner** | Orange Diamond | **1.6x fast** | 0.5x (fragile) | 1.2x | Wave 3 |
-| **Tank** | Blue Square | 0.6x (slow) | **2.5x tough** | 2x | Wave 5 |
-| **Swarm** | Pink Triangle | 1.3x fast | **0.35x (very fragile)** | 0.6x | Wave 7 |
-| **Healer** | Teal Hexagon | 0.9x | 1.2x | 1.5x | Wave 9 |
-| **Boss** | Red Star | 0.5x (slow) | **5x massive** | **6x** | Every 5 waves |
-
-### Enemy Behaviors
-
-- **Grunt**: The standard enemy. Nothing special, but they keep coming.
-- **Runner**: Blazing fast but dies quickly. Can slip past slow-firing towers.
-- **Tank**: A wall of HP. Slow but takes a beating. Snipers are your best bet.
-- **Swarm**: Tiny and fast, they come in large numbers. Cannons shred them.
-- **Healer**: Tougher than a grunt and worth more gold. Identifiable by its pulsing hexagon shape.
-- **Boss**: Massive HP pool, large and slow. Spawns every 5 waves; double bosses every 15 waves.
-
-When slowed by a Frost tower, enemies turn **cyan** and move at 40% speed for 1.5 seconds.
-
----
-
-## Waves
-
-### Scaling
-
-Enemy stats increase every wave:
-
-| Stat | Wave 1 | Later Waves |
-|------|--------|-------------|
-| HP (base) | 15 | 15 + wave x 10 + wave^1.6 |
-| Speed (base) | 0.7 | 0.8 + wave x 0.04 (capped at 1.2) |
-| Count | 3 | 3 + floor(wave x 1.5 + wave^0.8) |
-| Kill Reward (base) | ~4g | ~4g (scaled by enemy type multiplier) |
-
-### Enemy Introduction Schedule
-
-Enemy types unlock progressively and cycle through the available pool:
-
-| Wave | Enemies Available |
-|------|-------------------|
-| 1-2 | Grunts only |
-| 3-4 | + Runners |
-| 5-6 | + Tanks |
-| 7-8 | + Swarms |
-| 9+ | + Healers (all types) |
-
-### Bosses
-
-- **Every 5 waves** (5, 10, 15, 20...): 1 Boss spawns
-- **Every 15 waves** (15, 30, 45...): 2 Bosses spawn
-
-### Level Up
-
-Every **10 waves**, you level up:
-
-- All towers are **kept** — nothing is destroyed
-- You receive a gold bonus: **60 + level x 15** gold
-- You gain **+3 lives** (capped at 10)
-- The atmosphere shifts to a new color palette
-
----
-
-## Gold & Economy
-
-### Earning Gold
-
-| Source | Amount |
-|--------|--------|
-| Killing enemies | Varies by type and wave (see enemy table) |
-| Wave completion bonus | 10 + floor(wave x 1.5) |
-| Level-up bonus | 60 + level x 15 |
-
-### Spending Gold
-
-Gold is spent on placing and upgrading towers. Upgrades cost 50% of the tower's base price.
-
----
-
-## Scoring
-
-- Each enemy killed grants score equal to its gold reward
-- Score is displayed in the top HUD
-- Your final score is shown on the game over screen along with the wave reached
-
----
-
-## Lives
-
-- You start with **10 lives**
-- Each enemy that reaches the exit costs **1 life**
-- When lives hit **0**, the game is over
-- The game over screen shows "DEFEATED" with your score and wave number
-- Press **RESTART** to play again
-
----
-
-## Game Speed
-
-Cycle through speed modes by pressing the speed button:
-
-- **1X** — Normal speed
-- **2X** — Double speed
-- **3X** — Triple speed
-- **4X** — Quadruple speed
-
-Affects all movement, firing, and spawning. Useful for speeding through early waves.
-
----
-
-## Strategy Tips
-
-1. **Start with GUNs** — They're cheap and effective for early waves
-2. **Add FROST early** — Slowing enemies amplifies all your other towers
-3. **Place FROST before damage towers** — Enemies hit the slow first, then crawl through your kill zone
-4. **Save for SNIPERS before boss waves** (5, 10, 15...) — Their high damage melts bosses
-5. **Use CANNONS against swarms** (wave 7+) — Splash damage handles groups efficiently
-6. **Upgrade your key towers** — Upgrades cost only half the base price and boost damage, range, and fire rate
-7. **Level-ups are free power** — Every 10 waves you get bonus gold, +3 lives, and keep all towers
-8. **Cover chokepoints** — Place towers where the path turns so enemies spend more time in range
+## Conventions
+- All game state is in module-level variables (no classes, no modules)
+- Enemies/towers/bullets stored as plain object arrays
+- Canvas redraws every frame via `requestAnimationFrame`
+- Colors use hex strings; tower/enemy types have distinct color identities
+- UI buttons wired up via `onclick` attributes and `querySelectorAll` in init
+- Towers upgradeable to level 3 by tapping; upgrade cost is 50% of base placement cost
+- Records stored in localStorage under key `tawer_best` (JSON object keyed by world name)
+- Click "TAWER" title to view records modal
+- Gold/score displayed as `Math.floor()` integers
+- No `shadowBlur` in per-frame rendering (mobile perf); only used in one-time icon draws
+- Gradients minimized: only L3 energy cores, capped light sources, firing towers
+- Tower ambient lights only render for towers that just fired (not idle)

@@ -329,12 +329,12 @@ const SFX = {
 
 // --- HUD ---
 function updateHUD() {
-  document.getElementById('gold').textContent = gold;
+  document.getElementById('gold').textContent = Math.floor(gold);
   document.getElementById('lives').textContent = lives;
   document.getElementById('world-name').textContent = WORLDS[currentWorldIdx].name;
   document.getElementById('level').textContent = level;
   document.getElementById('wave').textContent = waveNum;
-  document.getElementById('score').textContent = score;
+  document.getElementById('score').textContent = Math.floor(score);
   document.querySelectorAll('.tower-btn').forEach(btn => {
     const cost = TOWER_DEFS[btn.dataset.type].cost;
     btn.classList.toggle('unaffordable', gold < cost);
@@ -1206,7 +1206,7 @@ function damageEnemy(e, dmg, slow) {
     // Floating gold text
     floatingTexts.push({
       x: e.x, y: e.y - e.radius * 1.5,
-      text: `+${e.reward}g`, color: '#ffd700',
+      text: `+${Math.floor(e.reward)}g`, color: '#ffd700',
       life: 800, maxLife: 800, vy: -0.8
     });
 

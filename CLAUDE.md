@@ -1,7 +1,7 @@
 # TAWER — Tower Defense Game
 
 ## Overview
-HTML5 canvas tower defense game split across 4 files. No build tools, no dependencies, no frameworks.
+HTML5 canvas tower defense game split across 3 files + config. No build tools, no dependencies, no frameworks.
 
 ## Architecture
 - **`index.html`**: HTML structure (canvas, HUD, tower buttons, records modal, game-over overlay)
@@ -19,10 +19,12 @@ HTML5 canvas tower defense game split across 4 files. No build tools, no depende
 ### config.js — Data & Utilities
 - `BALANCE` object — all game balance constants (gold, HP, speed, rewards, upgrades, etc.)
 - `WORLDS` array (map data, 10x16 grid, 4 maps: SERPENT, SPIRAL, ZIGZAG, FORTRESS)
-- `TOWER_DEFS` — tower type definitions (gun, cannon, sniper, frost)
+- `TOWER_TIERS` array — 4 evolution tiers (STANDARD, ADVANCED, ELITE, LEGENDARY), each with 4 tower defs
+- `EVOLUTION_LEVELS` — levels that trigger tower evolution [5, 10, 15]
+- `TOWER_DEFS` — active tower type definitions (swapped on evolution)
 - `ENEMY_TYPES` — enemy type definitions (grunt, runner, tank, swarm, healer, boss)
-- `ATMOSPHERE_PALETTES` — 10 level atmosphere color palettes
-- Helper functions: `shadeColor`, `lerpHex`, `lerpRgba`, `copyPalette`, `lerpPalette`
+- `ATMOSPHERE_PALETTES` — 10 level atmosphere color palettes (rock colors boosted for dark visibility)
+- Helper functions: `shadeColor`, `lerpHex`, `lerpRgba` (with `_rgbaCache` for perf), `copyPalette`, `lerpPalette`
 - `loadBestScores`, `saveBestScore` (localStorage)
 
 ### engine.js — State, Logic, Sound, UI
@@ -33,9 +35,13 @@ HTML5 canvas tower defense game split across 4 files. No build tools, no depende
 - Sound engine (Web Audio, procedural SFX)
 - HUD updates, UI event handlers (tower selection, speed/auto/sound buttons, hover/touch, canvas tap)
 - Records modal (`openRecords`, click on "TAWER" title to open, clear records button)
+- Tower evolution system (`evolveTowers`, `refreshTowerBar`, `currentTier`) — resets towers to L1 with new tier stats at levels 5/10/15
+- Evolution notification with `evolutionWaiting` — pauses game until player taps "TAP TO CONTINUE"
 - Game logic: startWave, getWaveComposition, spawnEnemy, update, levelUp, damageEnemy, endGame
 - Tower animated state: `scannerAngle`, `smokeTimer`, `crystalPhase` (updated per frame in tower loop)
 - Cannon L3 idle smoke wisps (spawns trail particles every 3s)
+- Cheat keys: K (kill all mobs), G (+1000 gold), L (skip to next level)
+- Particle/array caps for mobile perf: particles (150), trail particles (100), light sources (20)
 - Restart handler
 
 ### render.js — Drawing & Game Loop
@@ -48,7 +54,8 @@ HTML5 canvas tower defense game split across 4 files. No build tools, no depende
   - `drawFrostTower` — 6-pointed crystalline star base, floating rotating diamond crystal, frost mist dots (animated at L3), L3 aurora arc + crystal glow, L2+ orbiting ice shards (2→3), L3 shard trails
 - **Tower draw loop** in `draw()` — type dispatcher for base/barrel/center, shared range ring, ground glow, L3 halo, upgrade rings, muzzle flash, level pips, cost labels
 - **Ghost preview** — type-specific shapes (hex/roundrect/diamond/crystal) instead of generic circle
-- **Extra spawn portal rendering** — static markers + active portal vortex for extra spawn points
+- **Spawn point markers** — unified style for main + extra spawns (pulsing glow, ring, arrow, portal vortex)
+- **Rock tiles** — organic wobbly boulders (seeded per tile), no grid lines, grass base shows through
 - `draw()` function (all canvas rendering)
 - `gameLoop` function
 - Init: resize listener, first resize, updateHUD, requestAnimationFrame
@@ -59,10 +66,13 @@ All balance numbers live in the `BALANCE` object in `config.js`. Key values:
 - Starting gold: 300, starting lives: 10
 - 4 tower types: gun (50g), cannon (100g), sniper (150g), frost (75g)
 - 6 enemy types: grunt, runner, tank, swarm, healer, boss (every 5 waves)
-- Kill reward base: `3.675 * 1.169` scaled by enemy type multiplier
+- Kill reward base: `3.675 * 1.546` scaled by enemy type multiplier
+- Mob count multiplier: 0.57528; HP multiplier: 1.1
 - Level-up every 10 waves (towers kept, gold bonus, +3 lives, atmosphere change, extra spawn point from L2+)
+- Tower evolution at levels 5, 10, 15 (ADVANCED, ELITE, LEGENDARY tiers)
 - Spawn interval: 600ms between enemies
-- Speed multiplier: 0.857375 (applies to all enemy speeds)
+- Speed multiplier: 0.8145 (applies to all enemy speeds)
+- Tank: speedMul 0.51, hpMul 3.0 (slow and beefy)
 - Frost slow: 40% speed for 1500ms; Cannon splash: 50% damage in 35-unit radius
 - Wave completion bonus: `10.5 + floor(wave * 1.575)` gold
 - Level-up bonus: `63 + level * 15.75` gold, +3 lives (capped at 10)
@@ -90,3 +100,7 @@ All balance numbers live in the `BALANCE` object in `config.js`. Key values:
 - Towers upgradeable to level 3 by tapping; upgrade cost is 50% of base placement cost
 - Records stored in localStorage under key `tawer_best` (JSON object keyed by world name)
 - Click "TAWER" title to view records modal
+- Gold/score displayed as `Math.floor()` integers
+- No `shadowBlur` in per-frame rendering (mobile perf); only used in one-time icon draws
+- Gradients minimized: only L3 energy cores, capped light sources, firing towers
+- Tower ambient lights only render for towers that just fired (not idle)

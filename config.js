@@ -12,7 +12,7 @@ const BALANCE = {
   countBase: 3,
   countLinear: 1.5,
   countExponent: 0.8,
-  countMultiplier: 0.6768,
+  countMultiplier: 0.57528,
   spawnInterval: 600,
   spawnIntervalMin: 300,
   spawnIntervalScaling: 12,
@@ -31,11 +31,11 @@ const BALANCE = {
   speedBase: 0.76,
   speedScaling: 0.038,
   speedCap: 1.52,
-  speedMultiplier: 0.857375,
+  speedMultiplier: 0.81450625,
 
   // Kill reward
   rewardBase: 3.675,
-  rewardMultiplier: 1.34435,
+  rewardMultiplier: 1.5460025,
 
   // Wave completion
   waveGoldBase: 10.5,
@@ -67,24 +67,6 @@ const BALANCE = {
 };
 
 const WORLDS = [
-  { name: 'SERPENT', data: [
-    [2,1,1,1,1,1,1,1,1,0],
-    [0,0,0,0,0,0,0,0,1,0],
-    [0,1,1,1,1,1,1,1,1,0],
-    [0,1,0,0,0,0,0,0,0,0],
-    [0,1,1,1,1,1,1,1,1,0],
-    [0,0,0,0,0,0,0,0,1,0],
-    [0,1,1,1,1,1,1,1,1,0],
-    [0,1,0,0,0,0,0,0,0,0],
-    [0,1,1,1,1,1,1,1,1,0],
-    [0,0,0,0,0,0,0,0,1,0],
-    [0,1,1,1,1,1,1,1,1,0],
-    [0,1,0,0,0,0,0,0,0,0],
-    [0,1,1,1,1,1,1,1,1,0],
-    [0,0,0,0,0,0,0,0,1,0],
-    [0,0,0,0,0,0,0,0,1,0],
-    [0,0,0,0,0,0,0,0,3,0],
-  ]},
   { name: 'SPIRAL', data: [
     [2,1,1,1,1,1,1,1,1,1],
     [0,0,0,0,0,0,0,0,0,1],
@@ -102,24 +84,6 @@ const WORLDS = [
     [0,1,0,0,0,0,0,0,0,1],
     [0,1,0,0,0,0,0,0,0,1],
     [0,1,1,1,1,1,1,1,1,1],
-  ]},
-  { name: 'ZIGZAG', data: [
-    [2,1,1,1,1,1,1,1,1,0],
-    [0,0,0,0,0,0,0,0,1,0],
-    [0,0,0,0,0,0,0,0,1,0],
-    [0,1,1,1,1,1,1,1,1,0],
-    [0,1,0,0,0,0,0,0,0,0],
-    [0,1,0,0,0,0,0,0,0,0],
-    [0,1,1,1,1,1,1,1,1,0],
-    [0,0,0,0,0,0,0,0,1,0],
-    [0,0,0,0,0,0,0,0,1,0],
-    [0,1,1,1,1,1,1,1,1,0],
-    [0,1,0,0,0,0,0,0,0,0],
-    [0,1,0,0,0,0,0,0,0,0],
-    [0,1,1,1,1,1,1,1,1,0],
-    [0,0,0,0,0,0,0,0,1,0],
-    [0,0,0,0,0,0,0,0,1,0],
-    [0,0,0,0,0,0,0,0,3,0],
   ]},
   { name: 'FORTRESS', data: [
     [0,0,0,0,2,0,0,0,3,0],
@@ -140,6 +104,350 @@ const WORLDS = [
     [0,0,0,0,0,0,0,0,0,0],
   ]},
 ];
+
+// --- RANDOM MAP GENERATOR ---
+// Seeded PRNG for reproducible maps (so records are meaningful)
+function mulberry32(a) {
+  return function() {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+function generateRandomMap(seed, forceStrategy) {
+  const R = 16, C = 10;
+  const rng = mulberry32(seed);
+  const grid = Array.from({ length: R }, () => Array(C).fill(0));
+
+  const strategy = (forceStrategy !== undefined) ? forceStrategy : Math.floor(rng() * 4);
+
+  if (strategy === 0) {
+    // SERPENTINE: horizontal rows that snake back and forth with varied spacing
+    const numRows = 5 + Math.floor(rng() * 3); // 5-7 rows for longer paths
+    let direction = rng() < 0.5 ? 1 : -1;
+    // Distribute rows roughly evenly across the grid height
+    const rowPositions = [];
+    for (let i = 0; i < numRows; i++) {
+      const base = Math.round((i / (numRows - 1)) * (R - 3)) + 1;
+      const jitter = Math.floor(rng() * 2);
+      rowPositions.push(Math.min(R - 2, Math.max(1, base + jitter)));
+    }
+    // Deduplicate and ensure min spacing of 2
+    const uniqueRows = [rowPositions[0]];
+    for (let i = 1; i < rowPositions.length; i++) {
+      const r = rowPositions[i];
+      if (r > uniqueRows[uniqueRows.length - 1] + 1) uniqueRows.push(r);
+    }
+
+    let prevRow = -1, prevEndCol = -1;
+    for (let i = 0; i < uniqueRows.length; i++) {
+      const r = uniqueRows[i];
+      // Vary the horizontal extent — don't always go full width
+      const margin = Math.floor(rng() * 2);
+      const startCol = direction === 1 ? margin : C - 1 - margin;
+      const endCol = direction === 1 ? C - 1 - margin : margin;
+      const minC = Math.min(startCol, endCol), maxC = Math.max(startCol, endCol);
+      for (let c = minC; c <= maxC; c++) grid[r][c] = 1;
+      if (prevRow >= 0) {
+        const connCol = prevEndCol;
+        // Ensure connection column is within this row's range
+        const clamped = Math.min(maxC, Math.max(minC, connCol));
+        const minR = Math.min(prevRow, r), maxR = Math.max(prevRow, r);
+        for (let rr = minR; rr <= maxR; rr++) grid[rr][clamped] = 1;
+        // Also connect clamped to start of this row if needed
+        if (clamped !== startCol) {
+          const mc = Math.min(clamped, startCol), xc = Math.max(clamped, startCol);
+          for (let cc = mc; cc <= xc; cc++) grid[r][cc] = 1;
+        }
+      }
+      prevRow = r;
+      prevEndCol = endCol;
+      direction *= -1;
+    }
+
+    const firstRow = uniqueRows[0];
+    const lastRow = uniqueRows[uniqueRows.length - 1];
+    let sC = -1, eC = -1;
+    for (let c = 0; c < C; c++) if (grid[firstRow][c] === 1 && sC < 0) sC = c;
+    for (let c = C - 1; c >= 0; c--) if (grid[lastRow][c] === 1 && eC < 0) eC = c;
+    // Connect start/end to edge if not already
+    if (firstRow > 0) for (let r = 0; r <= firstRow; r++) grid[r][sC] = 1;
+    if (lastRow < R - 1) for (let r = lastRow; r < R; r++) grid[r][eC] = 1;
+    grid[0][sC] = 2;
+    grid[R - 1][eC] = 3;
+
+  } else if (strategy === 1) {
+    // SWITCHBACK: multiple vertical columns connected at alternating top/bottom
+    // More columns = longer path since each column spans most of the height
+    const numCols = 4 + Math.floor(rng() * 2); // 4-5 columns
+    // Spread columns with minimum 2-cell gap between them
+    const colPositions = [];
+    const spacing = Math.floor((C - 2) / (numCols - 1));
+    for (let i = 0; i < numCols; i++) {
+      const base = 1 + i * spacing;
+      const jitter = (i > 0 && i < numCols - 1) ? Math.floor(rng() * 2) - 1 : 0;
+      colPositions.push(Math.min(C - 1, Math.max(0, base + jitter)));
+    }
+    const uniqueCols = [...new Set(colPositions)].sort((a, b) => a - b);
+    // Need at least 3 columns for a decent path
+    while (uniqueCols.length < 3) uniqueCols.push(C - 1 - uniqueCols.length);
+    uniqueCols.sort((a, b) => a - b);
+
+    let goingDown = true;
+    let prevCol = -1, prevEndRow = -1;
+    for (let i = 0; i < uniqueCols.length; i++) {
+      const c = uniqueCols[i];
+      // Each column spans nearly the full height, with slight variation
+      const topRow = i === 0 ? 0 : (1 + Math.floor(rng() * 2));
+      const botRow = i === uniqueCols.length - 1 ? R - 1 : (R - 2 - Math.floor(rng() * 2));
+      const startR = goingDown ? topRow : botRow;
+      const endR = goingDown ? botRow : topRow;
+      const minR = Math.min(startR, endR), maxR = Math.max(startR, endR);
+      for (let r = minR; r <= maxR; r++) grid[r][c] = 1;
+      if (prevCol >= 0) {
+        const connRow = prevEndRow;
+        const minC = Math.min(prevCol, c), maxC = Math.max(prevCol, c);
+        for (let cc = minC; cc <= maxC; cc++) grid[connRow][cc] = 1;
+      }
+      prevCol = c;
+      prevEndRow = endR;
+      goingDown = !goingDown;
+    }
+
+    const firstCol = uniqueCols[0];
+    const lastCol = uniqueCols[uniqueCols.length - 1];
+    let sR = -1, eR = -1;
+    for (let r = 0; r < R; r++) if (grid[r][firstCol] === 1 && sR < 0) sR = r;
+    for (let r = R - 1; r >= 0; r--) if (grid[r][lastCol] === 1 && eR < 0) eR = r;
+    grid[sR][firstCol] = 2;
+    grid[eR][lastCol] = 3;
+
+  } else if (strategy === 2) {
+    // WINDING: biased sweeps that step down, always single-tile wide
+    const startC = 1 + Math.floor(rng() * (C - 2));
+    let r = 0, c = startC;
+    grid[r][c] = 1;
+
+    let sweepDir = rng() < 0.5 ? -1 : 1;
+    while (r < R - 1) {
+      // Horizontal sweep: go in sweepDir until near edge
+      const sweepLen = 3 + Math.floor(rng() * (C - 4));
+      for (let s = 0; s < sweepLen; s++) {
+        const nc = c + sweepDir;
+        if (nc < 0 || nc >= C) break;
+        c = nc;
+        grid[r][c] = 1;
+      }
+      // Move down 2-3 rows to avoid double-thick corridors
+      const downSteps = 2 + Math.floor(rng() * 2);
+      for (let d = 0; d < downSteps && r < R - 1; d++) {
+        r++;
+        grid[r][c] = 1;
+      }
+      sweepDir *= -1;
+    }
+
+    // Ensure we're at bottom
+    while (r < R - 1) { r++; grid[r][c] = 1; }
+
+    grid[0][startC] = 2;
+    grid[R - 1][c] = 3;
+
+  } else {
+    // COMB: teeth alternating from left and right walls
+    // Build a guaranteed serpentine-like structure with teeth from alternating sides
+    let currentRow = 0;
+    const startC = rng() < 0.5 ? 0 : C - 1;
+    let fromLeft = startC === 0;
+
+    // First row: horizontal from edge
+    grid[currentRow][startC] = 1;
+
+    while (currentRow < R - 1) {
+      // Draw horizontal tooth across most of the grid
+      const teethLen = C - 2 - Math.floor(rng() * 2); // leave 1-2 gap on far side
+      if (fromLeft) {
+        for (let cc = 0; cc <= Math.min(C - 1, teethLen); cc++) grid[currentRow][cc] = 1;
+        // Go down on the right side — minimum 2 rows to avoid double-thick paths
+        const endCol = Math.min(C - 1, teethLen);
+        const downSteps = 2 + Math.floor(rng() * 2);
+        for (let d = 0; d < downSteps && currentRow < R - 1; d++) {
+          currentRow++;
+          // Only draw the vertical connector column, not full rows
+          grid[currentRow][endCol] = 1;
+        }
+      } else {
+        for (let cc = C - 1; cc >= Math.max(0, C - 1 - teethLen); cc--) grid[currentRow][cc] = 1;
+        const endCol = Math.max(0, C - 1 - teethLen);
+        const downSteps = 2 + Math.floor(rng() * 2);
+        for (let d = 0; d < downSteps && currentRow < R - 1; d++) {
+          currentRow++;
+          grid[currentRow][endCol] = 1;
+        }
+      }
+      fromLeft = !fromLeft;
+    }
+
+    // Draw final horizontal on last row
+    const lastRowHasPath = grid[R - 1].some(v => v === 1);
+    if (!lastRowHasPath) {
+      // Extend down from wherever we are
+      for (let rr = currentRow; rr < R; rr++) {
+        const cc = grid[rr].indexOf(1);
+        if (cc < 0) {
+          // Copy column from row above
+          for (let c = 0; c < C; c++) if (grid[rr - 1][c] >= 1) { grid[rr][c] = 1; break; }
+        }
+      }
+    }
+
+    // Place start and end
+    grid[0][startC] = 2;
+    // Find a path cell on the bottom row
+    let endC2 = -1;
+    for (let c = 0; c < C; c++) if (grid[R - 1][c] === 1) { endC2 = c; break; }
+    if (endC2 < 0) {
+      // Connect down to bottom
+      for (let c = 0; c < C; c++) {
+        if (grid[R - 2][c] >= 1) {
+          grid[R - 1][c] = 1;
+          endC2 = c;
+          break;
+        }
+      }
+    }
+    if (endC2 >= 0) grid[R - 1][endC2] = 3;
+  }
+
+  // Validate: ensure path from 2 to 3 exists via BFS
+  let startR = -1, startC = -1, endR = -1, endC = -1;
+  for (let r = 0; r < R; r++)
+    for (let c = 0; c < C; c++) {
+      if (grid[r][c] === 2) { startR = r; startC = c; }
+      if (grid[r][c] === 3) { endR = r; endC = c; }
+    }
+
+  if (startR < 0 || endR < 0) return null;
+
+  // BFS to check connectivity
+  const bfsVisited = new Set();
+  const bfsQueue = [{ r: startR, c: startC }];
+  bfsVisited.add(`${startR},${startC}`);
+  let found = false;
+  while (bfsQueue.length) {
+    const cur = bfsQueue.shift();
+    if (cur.r === endR && cur.c === endC) { found = true; break; }
+    for (const [ddr, ddc] of [[0,1],[0,-1],[1,0],[-1,0]]) {
+      const nr = cur.r + ddr, nc = cur.c + ddc;
+      const key = `${nr},${nc}`;
+      if (nr >= 0 && nr < R && nc >= 0 && nc < C && !bfsVisited.has(key) && grid[nr][nc] >= 1 && grid[nr][nc] <= 3) {
+        bfsVisited.add(key);
+        bfsQueue.push({ r: nr, c: nc });
+      }
+    }
+  }
+  if (!found) return null;
+
+  // Measure path length — reject maps with too-short paths
+  // BFS from start to end, count steps
+  const distMap = new Map();
+  const dQueue = [{ r: startR, c: startC }];
+  distMap.set(`${startR},${startC}`, 0);
+  while (dQueue.length) {
+    const cur = dQueue.shift();
+    const curDist = distMap.get(`${cur.r},${cur.c}`);
+    for (const [ddr, ddc] of [[0,1],[0,-1],[1,0],[-1,0]]) {
+      const nr = cur.r + ddr, nc = cur.c + ddc;
+      const key = `${nr},${nc}`;
+      if (nr >= 0 && nr < R && nc >= 0 && nc < C && !distMap.has(key) && grid[nr][nc] >= 1 && grid[nr][nc] <= 3) {
+        distMap.set(key, curDist + 1);
+        dQueue.push({ r: nr, c: nc });
+      }
+    }
+  }
+  const pathLen = distMap.get(`${endR},${endC}`) || 0;
+  if (pathLen < 50) return null; // too short, reject
+
+  // --- PRUNE DEAD-END BRANCHES ---
+  // BFS from end to find all tiles reachable from the exit
+  const reachFromEnd = new Set();
+  const eQueue = [{ r: endR, c: endC }];
+  reachFromEnd.add(`${endR},${endC}`);
+  while (eQueue.length) {
+    const cur = eQueue.shift();
+    for (const [ddr, ddc] of [[0,1],[0,-1],[1,0],[-1,0]]) {
+      const nr = cur.r + ddr, nc = cur.c + ddc;
+      const key = `${nr},${nc}`;
+      if (nr >= 0 && nr < R && nc >= 0 && nc < C && !reachFromEnd.has(key) && grid[nr][nc] >= 1 && grid[nr][nc] <= 3) {
+        reachFromEnd.add(key);
+        eQueue.push({ r: nr, c: nc });
+      }
+    }
+  }
+
+  // Iteratively remove dead-end tiles (path tiles with only 1 path neighbor)
+  // but never remove start or end tiles
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (let r = 0; r < R; r++) {
+      for (let c = 0; c < C; c++) {
+        if (grid[r][c] !== 1) continue; // only prune plain path tiles (not start=2 or end=3)
+        let neighbors = 0;
+        for (const [ddr, ddc] of [[0,1],[0,-1],[1,0],[-1,0]]) {
+          const nr = r + ddr, nc = c + ddc;
+          if (nr >= 0 && nr < R && nc >= 0 && nc < C && grid[nr][nc] >= 1 && grid[nr][nc] <= 3) neighbors++;
+        }
+        if (neighbors <= 1) {
+          grid[r][c] = 0; // remove dead end
+          changed = true;
+        }
+      }
+    }
+  }
+
+  // Re-validate after pruning
+  const finalVisited = new Set();
+  const fQueue = [{ r: startR, c: startC }];
+  finalVisited.add(`${startR},${startC}`);
+  let finalFound = false;
+  while (fQueue.length) {
+    const cur = fQueue.shift();
+    if (cur.r === endR && cur.c === endC) { finalFound = true; break; }
+    for (const [ddr, ddc] of [[0,1],[0,-1],[1,0],[-1,0]]) {
+      const nr = cur.r + ddr, nc = cur.c + ddc;
+      const key = `${nr},${nc}`;
+      if (nr >= 0 && nr < R && nc >= 0 && nc < C && !finalVisited.has(key) && grid[nr][nc] >= 1 && grid[nr][nc] <= 3) {
+        finalVisited.add(key);
+        fQueue.push({ r: nr, c: nc });
+      }
+    }
+  }
+  if (!finalFound) return null;
+
+  return grid;
+}
+
+// Generate 4 random worlds with fixed seeds and forced strategies for variety
+const RANDOM_WORLDS_CONFIG = [
+  { name: 'LABYRINTH', seed: 2563, strategy: 0 },  // serpentine
+  { name: 'GAUNTLET',  seed: 1702, strategy: 1 },  // switchback
+  { name: 'CRUCIBLE',  seed: 19675, strategy: 2 }, // winding
+  { name: 'VORTEX',    seed: 9253, strategy: 3 },  // comb
+];
+
+for (const cfg of RANDOM_WORLDS_CONFIG) {
+  let map = null;
+  for (let attempt = 0; attempt < 100; attempt++) {
+    map = generateRandomMap(cfg.seed + attempt * 17, cfg.strategy);
+    if (map) break;
+  }
+  if (map) {
+    WORLDS.push({ name: cfg.name, data: map, generated: true });
+  }
+}
 
 function loadBestScores() { try { return JSON.parse(localStorage.getItem('tawer_best')) || {}; } catch(e) { return {}; } }
 function saveBestScore(world, s) { const b = loadBestScores(); if (!b[world] || s > b[world]) { b[world] = s; localStorage.setItem('tawer_best', JSON.stringify(b)); return true; } return false; }
@@ -203,7 +511,7 @@ let TOWER_DEFS = Object.assign({}, TOWER_TIERS[0].defs);
 const ENEMY_TYPES = {
   grunt:   { color: '#55cc55', shape: 'circle',  speedMul: 1,   hpMul: 1,   rewardMul: 1,   label: '\u25CF' },
   runner:  { color: '#ffaa22', shape: 'diamond',  speedMul: 1.6, hpMul: 0.5, rewardMul: 1.2, label: '\u25C6' },
-  tank:    { color: '#7788cc', shape: 'square',   speedMul: 0.6, hpMul: 2.5, rewardMul: 2,   label: '\u25A0' },
+  tank:    { color: '#7788cc', shape: 'square',   speedMul: 0.51, hpMul: 3.0, rewardMul: 2,   label: '\u25A0' },
   swarm:   { color: '#dd55dd', shape: 'triangle', speedMul: 1.3, hpMul: 0.35,rewardMul: 0.6, label: '\u25B2' },
   healer:  { color: '#44eebb', shape: 'hex',      speedMul: 0.9, hpMul: 1.2, rewardMul: 1.5, label: '\u2B21' },
   boss:    { color: '#ff2255', shape: 'star',     speedMul: 0.5, hpMul: 5,   rewardMul: 6,   label: '\u2605' },
