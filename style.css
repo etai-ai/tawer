@@ -296,15 +296,23 @@ h1 {
 
 /* --- RECORDS MODAL --- */
 #records-overlay {
-  display: none;
+  display: flex;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
   position: fixed;
   inset: 0;
   background: rgba(10, 12, 16, 0.92);
   z-index: 50;
   align-items: center;
   justify-content: center;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
 }
-#records-overlay.show { display: flex; }
+#records-overlay.show {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+}
 
 #records-modal {
   background: #111822;

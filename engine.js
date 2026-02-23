@@ -317,12 +317,12 @@ const SFX = {
 
 // --- HUD ---
 function updateHUD() {
-  document.getElementById('gold').textContent = gold;
+  document.getElementById('gold').textContent = Math.floor(gold);
   document.getElementById('lives').textContent = lives;
   document.getElementById('world-name').textContent = WORLDS[currentWorldIdx].name;
   document.getElementById('level').textContent = level;
   document.getElementById('wave').textContent = waveNum;
-  document.getElementById('score').textContent = score;
+  document.getElementById('score').textContent = Math.floor(score);
   document.querySelectorAll('.tower-btn').forEach(btn => {
     const cost = TOWER_DEFS[btn.dataset.type].cost;
     btn.classList.toggle('unaffordable', gold < cost);
@@ -965,7 +965,7 @@ function update(dt, ts) {
 
   if (waveActive && !waveSpawning && spawnQueue.length === 0 && enemies.length === 0) {
     waveActive = false;
-    gold += BALANCE.waveGoldBase + Math.floor(waveNum * BALANCE.waveGoldScaling);
+    gold += Math.floor(BALANCE.waveGoldBase + waveNum * BALANCE.waveGoldScaling);
     SFX.waveComplete();
     updateHUD();
     document.getElementById('start-btn').disabled = false;
@@ -1022,7 +1022,7 @@ function levelUp() {
   level++;
   SFX.levelUp();
   const palIdx = Math.min(level - 1, ATMOSPHERE_PALETTES.length - 1);
-  const bonus = BALANCE.levelUpGoldBase + level * BALANCE.levelUpGoldScaling;
+  const bonus = Math.floor(BALANCE.levelUpGoldBase + level * BALANCE.levelUpGoldScaling);
   gold += bonus;
   lives = Math.min(lives + BALANCE.livesPerLevelUp, BALANCE.maxLives);
   // Trigger atmosphere transition
