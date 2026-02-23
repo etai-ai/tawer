@@ -12,7 +12,7 @@ const BALANCE = {
   countBase: 3,
   countLinear: 1.5,
   countExponent: 0.8,
-  countMultiplier: 0.846,
+  countMultiplier: 0.6768,
   spawnInterval: 600,
   spawnIntervalMin: 300,
   spawnIntervalScaling: 12,
@@ -24,6 +24,7 @@ const BALANCE = {
   hpExponentBase: 1.6,
   hpExponentRamp: 0.02,
   hpExponentCap: 0.4,
+  hpMultiplier: 1.1,
 
   // Enemy speed
   wave1Speed: 0.632,
@@ -34,7 +35,7 @@ const BALANCE = {
 
   // Kill reward
   rewardBase: 3.675,
-  rewardMultiplier: 1.169,
+  rewardMultiplier: 1.34435,
 
   // Wave completion
   waveGoldBase: 10.5,
@@ -143,12 +144,61 @@ const WORLDS = [
 function loadBestScores() { try { return JSON.parse(localStorage.getItem('tawer_best')) || {}; } catch(e) { return {}; } }
 function saveBestScore(world, s) { const b = loadBestScores(); if (!b[world] || s > b[world]) { b[world] = s; localStorage.setItem('tawer_best', JSON.stringify(b)); return true; } return false; }
 
-const TOWER_DEFS = {
-  gun:    { cost: 50,  range: 110, damage: 12, rate: 450,  color: '#00ff88', bullet: '#00ff88', bulletSpeed: 6, splash: 0 },
-  cannon: { cost: 100, range: 95,  damage: 40, rate: 1100, color: '#ff6b35', bullet: '#ff6b35', bulletSpeed: 4, splash: 35 },
-  sniper: { cost: 150, range: 250, damage: 75, rate: 1800, color: '#a55eea', bullet: '#a55eea', bulletSpeed: 10, splash: 0 },
-  frost:  { cost: 75,  range: 110, damage: 5,  rate: 350,  color: '#00d2ff', bullet: '#00d2ff', bulletSpeed: 5, splash: 0, slow: 0.4 },
-};
+// Tower evolution tiers — unlocked at levels 1, 5, 10, 15
+// Each tier has 4 tower types mapped to the base slots: gun, cannon, sniper, frost
+const TOWER_TIERS = [
+  // TIER 1 (default)
+  {
+    tierName: 'STANDARD',
+    tierLevel: 1,
+    defs: {
+      gun:    { name: 'GUN',     cost: 50,  range: 110, damage: 12, rate: 450,  color: '#00ff88', bullet: '#00ff88', bulletSpeed: 6, splash: 0 },
+      cannon: { name: 'CANNON',  cost: 100, range: 95,  damage: 40, rate: 1100, color: '#ff6b35', bullet: '#ff6b35', bulletSpeed: 4, splash: 35 },
+      sniper: { name: 'SNIPER',  cost: 150, range: 250, damage: 75, rate: 1800, color: '#a55eea', bullet: '#a55eea', bulletSpeed: 10, splash: 0 },
+      frost:  { name: 'FROST',   cost: 75,  range: 110, damage: 5,  rate: 350,  color: '#00d2ff', bullet: '#00d2ff', bulletSpeed: 5, splash: 0, slow: 0.4 },
+    }
+  },
+  // TIER 2 — Level 5
+  {
+    tierName: 'ADVANCED',
+    tierLevel: 5,
+    defs: {
+      gun:    { name: 'PULSE',   cost: 80,  range: 120, damage: 22, rate: 380,  color: '#44ffaa', bullet: '#44ffaa', bulletSpeed: 7, splash: 0 },
+      cannon: { name: 'MORTAR',  cost: 160, range: 105, damage: 70, rate: 1000, color: '#ff8844', bullet: '#ff8844', bulletSpeed: 4.5, splash: 45 },
+      sniper: { name: 'RAILGUN', cost: 240, range: 280, damage: 140,rate: 1600, color: '#bb77ff', bullet: '#bb77ff', bulletSpeed: 14, splash: 0 },
+      frost:  { name: 'CRYO',    cost: 120, range: 120, damage: 10, rate: 300,  color: '#33eeff', bullet: '#33eeff', bulletSpeed: 6, splash: 0, slow: 0.5 },
+    }
+  },
+  // TIER 3 — Level 10
+  {
+    tierName: 'ELITE',
+    tierLevel: 10,
+    defs: {
+      gun:    { name: 'PLASMA',  cost: 130, range: 130, damage: 40, rate: 320,  color: '#88ffcc', bullet: '#88ffcc', bulletSpeed: 8, splash: 0 },
+      cannon: { name: 'SIEGE',   cost: 260, range: 115, damage: 120,rate: 900,  color: '#ffaa55', bullet: '#ffaa55', bulletSpeed: 5, splash: 55 },
+      sniper: { name: 'GAUSS',   cost: 400, range: 310, damage: 260,rate: 1400, color: '#dd99ff', bullet: '#dd99ff', bulletSpeed: 18, splash: 0 },
+      frost:  { name: 'BLIZZARD',cost: 200, range: 135, damage: 18, rate: 260,  color: '#66f0ff', bullet: '#66f0ff', bulletSpeed: 7, splash: 0, slow: 0.6 },
+    }
+  },
+  // TIER 4 — Level 15
+  {
+    tierName: 'LEGENDARY',
+    tierLevel: 15,
+    defs: {
+      gun:    { name: 'NOVA',    cost: 220, range: 145, damage: 72, rate: 270,  color: '#ccffee', bullet: '#ccffee', bulletSpeed: 10, splash: 0 },
+      cannon: { name: 'ORBITAL', cost: 440, range: 130, damage: 220,rate: 800,  color: '#ffcc66', bullet: '#ffcc66', bulletSpeed: 6, splash: 70 },
+      sniper: { name: 'VOID',    cost: 660, range: 350, damage: 500,rate: 1200, color: '#eeccff', bullet: '#eeccff', bulletSpeed: 24, splash: 0 },
+      frost:  { name: 'ZERO',    cost: 330, range: 150, damage: 35, rate: 220,  color: '#aaf4ff', bullet: '#aaf4ff', bulletSpeed: 9, splash: 0, slow: 0.7 },
+    }
+  },
+];
+
+// Evolution schedule — which levels trigger tier upgrades
+const EVOLUTION_LEVELS = [5, 10, 15];
+
+// Active tower defs — starts as tier 0, swapped on evolution
+let currentTier = 0;
+let TOWER_DEFS = Object.assign({}, TOWER_TIERS[0].defs);
 
 const ENEMY_TYPES = {
   grunt:   { color: '#55cc55', shape: 'circle',  speedMul: 1,   hpMul: 1,   rewardMul: 1,   label: '\u25CF' },

@@ -780,7 +780,7 @@ function startWave() {
   spawnPortal.life = spawnPortal.maxLife;
 
   const baseCount = waveNum === 1 ? BALANCE.wave1Count : Math.floor((BALANCE.countBase + Math.floor(waveNum * BALANCE.countLinear + Math.pow(waveNum, BALANCE.countExponent))) * BALANCE.countMultiplier);
-  const hp = waveNum === 1 ? BALANCE.wave1Hp : BALANCE.hpBase + waveNum * BALANCE.hpLinear + Math.pow(waveNum, BALANCE.hpExponentBase + Math.min(waveNum * BALANCE.hpExponentRamp, BALANCE.hpExponentCap));
+  const hp = (waveNum === 1 ? BALANCE.wave1Hp : BALANCE.hpBase + waveNum * BALANCE.hpLinear + Math.pow(waveNum, BALANCE.hpExponentBase + Math.min(waveNum * BALANCE.hpExponentRamp, BALANCE.hpExponentCap))) * BALANCE.hpMultiplier;
   const baseSpeed = (waveNum === 1 ? BALANCE.wave1Speed : (BALANCE.speedBase + Math.min(waveNum * BALANCE.speedScaling, BALANCE.speedCap)) * BALANCE.speedMultiplier) * (TILE / 40);
   const reward = BALANCE.rewardBase * BALANCE.rewardMultiplier;
 
