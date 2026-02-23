@@ -537,6 +537,10 @@ document.addEventListener('keydown', e => {
       if (en.alive) damageEnemy(en, en.hp, 0);
     }
   }
+  if (e.key === 'g' || e.key === 'G') {
+    gold += 1000;
+    updateHUD();
+  }
 });
 
 // --- EXTRA SPAWN POINTS: from level 2+, enemies enter from additional map edges ---
