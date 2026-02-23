@@ -1265,7 +1265,10 @@ function damageEnemy(e, dmg, slow) {
 function endGame() {
   gameOver = true;
   SFX.gameOver();
-  if (typeof CG !== 'undefined') CG.gameplayStop();
+  if (typeof CG !== 'undefined') {
+    CG.gameplayStop();
+    CG.submitScore(score);
+  }
   const overlay = document.getElementById('game-over-overlay');
   const title = document.getElementById('end-title');
   const msg = document.getElementById('end-msg');

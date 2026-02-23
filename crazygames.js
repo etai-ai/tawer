@@ -146,4 +146,39 @@ const CG = {
     }
     try { localStorage.removeItem(key); } catch (e) {}
   },
+
+  // --- Leaderboard ---
+  // Encryption key — replace with your own 32-byte base64 key from CrazyGames dashboard
+  _leaderboardKey: 'yU58HgumoPWbTAsyrAngQOk+Cx/jyVlLzkjPV79gzd8=',
+
+  async _encryptScore(score) {
+    const iv = window.crypto.getRandomValues(new Uint8Array(12));
+    const keyBytes = new Uint8Array(
+      atob(this._leaderboardKey).split('').map(c => c.charCodeAt(0))
+    );
+    const cryptoKey = await window.crypto.subtle.importKey(
+      'raw', keyBytes, { name: 'AES-GCM', iv }, false, ['encrypt']
+    );
+    const data = new TextEncoder().encode(score.toString());
+    const encrypted = await window.crypto.subtle.encrypt(
+      { name: 'AES-GCM', iv }, cryptoKey, data
+    );
+    const combined = new Uint8Array(iv.length + encrypted.byteLength);
+    combined.set(iv);
+    combined.set(new Uint8Array(encrypted), iv.length);
+    return btoa(String.fromCharCode(...combined));
+  },
+
+  // Submit score to CrazyGames leaderboard (call at game over)
+  async submitScore(score) {
+    if (!this.available) return;
+    if (!score || score <= 0) return;
+    try {
+      const encrypted = await this._encryptScore(Math.floor(score));
+      this.sdk.user.submitScore({ encryptedScore: encrypted });
+      console.log('[CG] Score submitted:', Math.floor(score));
+    } catch (e) {
+      console.warn('[CG] Score submission failed:', e);
+    }
+  },
 };
