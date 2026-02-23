@@ -449,8 +449,8 @@ for (const cfg of RANDOM_WORLDS_CONFIG) {
   }
 }
 
-function loadBestScores() { try { return JSON.parse(localStorage.getItem('tawer_best')) || {}; } catch(e) { return {}; } }
-function saveBestScore(world, s) { const b = loadBestScores(); if (!b[world] || s > b[world]) { b[world] = s; localStorage.setItem('tawer_best', JSON.stringify(b)); return true; } return false; }
+function loadBestScores() { try { return JSON.parse((typeof CG !== 'undefined' ? CG.dataGet('tawer_best') : localStorage.getItem('tawer_best'))) || {}; } catch(e) { return {}; } }
+function saveBestScore(world, s) { const b = loadBestScores(); if (!b[world] || s > b[world]) { b[world] = s; const json = JSON.stringify(b); if (typeof CG !== 'undefined') CG.dataSet('tawer_best', json); else try { localStorage.setItem('tawer_best', json); } catch(e) {} return true; } return false; }
 
 // Tower evolution tiers — unlocked at levels 1, 5, 10, 15
 // Each tier has 4 tower types mapped to the base slots: gun, cannon, sniper, frost

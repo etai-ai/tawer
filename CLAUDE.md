@@ -7,7 +7,8 @@ HTML5 canvas tower defense game split across 3 files + config. No build tools, n
 - **`index.html`**: HTML structure (canvas, HUD, tower buttons, records modal, game-over overlay)
 - **`style.css`**: All CSS styles, modal styles, and responsive media queries
 - **`config.js`**: Data definitions & pure utilities (loaded first, no DOM access)
-- **`engine.js`**: Game state, logic, sound, UI handlers (loaded second)
+- **`crazygames.js`**: CrazyGames SDK v3 wrapper (loaded after config, before engine)
+- **`engine.js`**: Game state, logic, sound, UI handlers (loaded after crazygames)
 - **`render.js`**: Drawing & game loop (loaded third)
 - **Rendering**: HTML5 Canvas 2D (id: `game-canvas`)
 - **UI**: DOM-based HUD overlay on top of canvas (tower bar, wave controls, stats)
@@ -18,7 +19,10 @@ HTML5 canvas tower defense game split across 3 files + config. No build tools, n
 
 ### config.js — Data & Utilities
 - `BALANCE` object — all game balance constants (gold, HP, speed, rewards, upgrades, etc.)
-- `WORLDS` array (map data, 10x16 grid, 4 maps: SERPENT, SPIRAL, ZIGZAG, FORTRESS)
+- `WORLDS` array (map data, 10x16 grid, 2 handcrafted maps: SPIRAL, FORTRESS)
+- Random map generator: `mulberry32` (seeded PRNG), `generateRandomMap(seed, strategy)` — 4 strategies (serpentine, switchback, winding, comb), BFS validation, dead-end pruning, min path length 50
+- 4 generated worlds appended to WORLDS: LABYRINTH, GAUNTLET, CRUCIBLE, VORTEX (fixed seeds for reproducible records)
+- Total 6 maps: 2 handcrafted + 4 procedurally generated
 - `TOWER_TIERS` array — 4 evolution tiers (STANDARD, ADVANCED, ELITE, LEGENDARY), each with 4 tower defs
 - `EVOLUTION_LEVELS` — levels that trigger tower evolution [5, 10, 15]
 - `TOWER_DEFS` — active tower type definitions (swapped on evolution)
@@ -27,7 +31,24 @@ HTML5 canvas tower defense game split across 3 files + config. No build tools, n
 - Helper functions: `shadeColor`, `lerpHex`, `lerpRgba` (with `_rgbaCache` for perf), `copyPalette`, `lerpPalette`
 - `loadBestScores`, `saveBestScore` (localStorage)
 
-### engine.js — State, Logic, Sound, UI
+### crazygames.js — CrazyGames SDK v3 Wrapper
+- `CG` global object — wraps all SDK calls with graceful fallback (game works standalone without SDK)
+- `CG.init()` — async init, detects environment ('local', 'crazygames', 'disabled'), respects `muteAudio` setting
+- `CG.loadingStart/Stop()` — called from index.html init script
+- `CG.gameplayStart()` — called on first wave start
+- `CG.gameplayStop()` — called on game over
+- `CG.happytime()` — called on new record (triggers CrazyGames confetti)
+- `CG.requestMidgame()` — midgame ad on restart, returns promise; pauses/mutes during ad
+- `CG.requestRewarded()` — rewarded ad, returns promise resolving to true/false
+- `CG.dataGet/Set/Remove(key)` — cloud save wrapper, falls back to localStorage when SDK unavailable
+- Audio mute/restore: respects CrazyGames `muteAudio` platform setting, restores user preference after ads
+
+### index.html — Script Load Order & SDK Init
+- CrazyGames SDK v3 script loaded in head: `https://sdk.crazygames.com/crazygames-sdk-v3.js`
+- Load order: SDK → config.js → crazygames.js → engine.js → render.js → async init block
+- Init block: `CG.loadingStart()` → `CG.init()` → `CG.loadingStop()`, plus scroll prevention for iframe embed
+
+
 - Canvas/wrapper references, map variables & functions (padMap, scatterRocks, resize, buildPath)
 - Game state variables (gold, lives, score, towers, enemies, bullets, particles, etc.)
 - Extra spawn points system (`extraSpawnPoints`, `buildPathFromEdge`, `findExtraSpawnCandidates`, `addExtraSpawnPoint`, `rebuildExtraSpawnPaths`) — from level 2+, enemies enter from additional map edges via path-only BFS routing

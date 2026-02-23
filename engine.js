@@ -775,6 +775,7 @@ function evolveTowers() {
 // --- WAVES ---
 function startWave() {
   if (waveActive || gameOver) return;
+  if (waveNum === 0 && typeof CG !== 'undefined') CG.gameplayStart();
   waveNum++;
   waveActive = true;
   waveSpawning = true;
@@ -1264,6 +1265,7 @@ function damageEnemy(e, dmg, slow) {
 function endGame() {
   gameOver = true;
   SFX.gameOver();
+  if (typeof CG !== 'undefined') CG.gameplayStop();
   const overlay = document.getElementById('game-over-overlay');
   const title = document.getElementById('end-title');
   const msg = document.getElementById('end-msg');
@@ -1279,6 +1281,7 @@ function endGame() {
   if (isRecord && score > 0) {
     setTimeout(() => {
       SFX.newRecord();
+      if (typeof CG !== 'undefined') CG.happytime();
       title.textContent = 'NEW RECORD!';
       title.className = 'record';
       recordStars.textContent = '\u2605 \u2605 \u2605';
@@ -1293,40 +1296,48 @@ function endGame() {
 
 document.getElementById('restart-btn').addEventListener('click', e => {
   e.preventDefault();
-  gold = BALANCE.startGold; lives = BALANCE.startLives; waveNum = 0; score = 0; level = 1;
-  towers = []; enemies = []; bullets = []; particles = []; placeEffects = [];
-  floatingTexts = []; lightSources = []; trailParticles = [];
-  screenShake = { x: 0, y: 0, intensity: 0, decay: 0 };
-  spawnPortal = { active: false, life: 0, maxLife: 0 };
-  waveActive = false; waveSpawning = false; spawnQueue = []; gameOver = false;
-  selectedPlacedTower = null; mapShiftNotification = null; mapShiftDelay = 0;
-  extraSpawnPoints = []; spawnPointNotification = null;
-  evolutionNotification = null; evolutionWaiting = false; evolutionVFX = [];
-  currentTier = 0;
-  for (const type of ['gun', 'cannon', 'sniper', 'frost']) {
-    TOWER_DEFS[type] = TOWER_TIERS[0].defs[type];
+  const doRestart = () => {
+    gold = BALANCE.startGold; lives = BALANCE.startLives; waveNum = 0; score = 0; level = 1;
+    towers = []; enemies = []; bullets = []; particles = []; placeEffects = [];
+    floatingTexts = []; lightSources = []; trailParticles = [];
+    screenShake = { x: 0, y: 0, intensity: 0, decay: 0 };
+    spawnPortal = { active: false, life: 0, maxLife: 0 };
+    waveActive = false; waveSpawning = false; spawnQueue = []; gameOver = false;
+    selectedPlacedTower = null; mapShiftNotification = null; mapShiftDelay = 0;
+    extraSpawnPoints = []; spawnPointNotification = null;
+    evolutionNotification = null; evolutionWaiting = false; evolutionVFX = [];
+    currentTier = 0;
+    for (const type of ['gun', 'cannon', 'sniper', 'frost']) {
+      TOWER_DEFS[type] = TOWER_TIERS[0].defs[type];
+    }
+    gameSpeed = 1; autoMode = true; gameTime = 0;
+    currentAtmosphere = copyPalette(ATMOSPHERE_PALETTES[0]);
+    fromAtmosphere = null; targetAtmosphere = null;
+    atmosphereT = 0; atmosphereLerping = false;
+    ambientParticles = [];
+    currentWorldIdx = (currentWorldIdx + 1) % WORLDS.length;
+    padMap();
+    scatterRocks();
+    resize();
+    document.getElementById('speed-btn').textContent = '1X';
+    document.getElementById('auto-btn').textContent = 'AUTO';
+    document.getElementById('auto-btn').classList.add('active');
+    document.getElementById('game-over-overlay').classList.remove('show');
+    document.getElementById('end-title').style.color = '';
+    document.getElementById('end-title').className = '';
+    document.getElementById('end-msg').style.color = '';
+    document.getElementById('record-score').className = '';
+    document.getElementById('record-score').textContent = '';
+    document.getElementById('record-stars').className = '';
+    document.getElementById('record-stars').textContent = '';
+    document.getElementById('start-btn').disabled = false;
+    updateHUD();
+    refreshTowerBar();
+  };
+  // Show midgame ad on restart (CrazyGames), then reset
+  if (typeof CG !== 'undefined' && CG.available) {
+    CG.requestMidgame().then(doRestart);
+  } else {
+    doRestart();
   }
-  gameSpeed = 1; autoMode = true; gameTime = 0;
-  currentAtmosphere = copyPalette(ATMOSPHERE_PALETTES[0]);
-  fromAtmosphere = null; targetAtmosphere = null;
-  atmosphereT = 0; atmosphereLerping = false;
-  ambientParticles = [];
-  currentWorldIdx = (currentWorldIdx + 1) % WORLDS.length;
-  padMap();
-  scatterRocks();
-  resize();
-  document.getElementById('speed-btn').textContent = '1X';
-  document.getElementById('auto-btn').textContent = 'AUTO';
-  document.getElementById('auto-btn').classList.add('active');
-  document.getElementById('game-over-overlay').classList.remove('show');
-  document.getElementById('end-title').style.color = '';
-  document.getElementById('end-title').className = '';
-  document.getElementById('end-msg').style.color = '';
-  document.getElementById('record-score').className = '';
-  document.getElementById('record-score').textContent = '';
-  document.getElementById('record-stars').className = '';
-  document.getElementById('record-stars').textContent = '';
-  document.getElementById('start-btn').disabled = false;
-  updateHUD();
-  refreshTowerBar();
 });

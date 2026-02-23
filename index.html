@@ -85,8 +85,27 @@
   </div>
 </div>
 
+<script src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>
 <script src="config.js"></script>
+<script src="crazygames.js"></script>
 <script src="engine.js"></script>
 <script src="render.js"></script>
+<script>
+// Initialize CrazyGames SDK after all scripts loaded
+(async () => {
+  try {
+    CG.loadingStart();
+    await CG.init();
+    CG.loadingStop();
+  } catch(e) {
+    console.warn('[CG] Init error:', e);
+  }
+  // Prevent arrow/space scrolling when embedded
+  window.addEventListener('wheel', e => e.preventDefault(), { passive: false });
+  window.addEventListener('keydown', e => {
+    if (['ArrowUp','ArrowDown',' '].includes(e.key)) e.preventDefault();
+  });
+})();
+</script>
 </body>
 </html>
