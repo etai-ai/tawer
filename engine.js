@@ -541,6 +541,9 @@ document.addEventListener('keydown', e => {
     gold += 1000;
     updateHUD();
   }
+  if (e.key === 'l' || e.key === 'L') {
+    levelUp();
+  }
 });
 
 // --- EXTRA SPAWN POINTS: from level 2+, enemies enter from additional map edges ---
