@@ -145,6 +145,7 @@ let mapShiftDelay = 0;
 let extraSpawnPoints = []; // [{entryR, entryC, path:[], portalActive, portalLife, portalMaxLife}]
 let spawnPointNotification = null; // notification for new spawn point
 let evolutionNotification = null; // {life, maxLife, tierName, tierIdx, phase}
+let evolutionWaiting = false; // true = evolution screen paused, waiting for tap
 let evolutionVFX = []; // per-tower transformation effects {x, y, life, maxLife, oldColor, newColor}
 let selectedTower = 'gun';
 let selectedPlacedTower = null;
@@ -465,6 +466,11 @@ function getCanvasPos(e) {
 function handleTap(e) {
   e.preventDefault();
   if (gameOver) return;
+  // Dismiss evolution screen on tap
+  if (evolutionWaiting) {
+    evolutionWaiting = false;
+    return;
+  }
   const pos = getCanvasPos(e);
   const col = Math.floor(pos.x / TILE);
   const row = Math.floor(pos.y / TILE);
@@ -754,12 +760,13 @@ function evolveTowers() {
   screenShake.decay = Math.max(screenShake.decay, 600);
   SFX.evolution();
 
-  // Show evolution notification
+  // Show evolution notification — wait for player tap
   evolutionNotification = {
     life: 5000, maxLife: 5000,
     tierName: newTier.tierName,
     tierIdx: newTierIdx,
   };
+  evolutionWaiting = true;
 
   // Refresh tower bar UI
   refreshTowerBar();
@@ -1084,10 +1091,15 @@ function update(dt, ts) {
   for (const ev of evolutionVFX) ev.life -= dt;
   evolutionVFX = evolutionVFX.filter(ev => ev.life > 0);
 
-  // Evolution notification
+  // Evolution notification — pause countdown while waiting for tap
   if (evolutionNotification) {
-    evolutionNotification.life -= dt;
-    if (evolutionNotification.life <= 0) evolutionNotification = null;
+    if (!evolutionWaiting) {
+      evolutionNotification.life -= dt;
+      if (evolutionNotification.life <= 0) evolutionNotification = null;
+    } else {
+      // Pin life at ~80% so it stays fully visible (past fade-in)
+      evolutionNotification.life = Math.min(evolutionNotification.life, evolutionNotification.maxLife * 0.8);
+    }
   }
 
   if (waveActive && !waveSpawning && spawnQueue.length === 0 && enemies.length === 0) {
@@ -1110,8 +1122,8 @@ function update(dt, ts) {
     if (mapShiftNotification.life <= 0) mapShiftNotification = null;
   }
 
-  // Level-up delay — start next wave when it expires
-  if (mapShiftDelay > 0) {
+  // Level-up delay — start next wave when it expires (paused during evolution wait)
+  if (mapShiftDelay > 0 && !evolutionWaiting) {
     mapShiftDelay -= dt;
     if (mapShiftDelay <= 0) {
       mapShiftDelay = 0;
@@ -1289,7 +1301,7 @@ document.getElementById('restart-btn').addEventListener('click', e => {
   waveActive = false; waveSpawning = false; spawnQueue = []; gameOver = false;
   selectedPlacedTower = null; mapShiftNotification = null; mapShiftDelay = 0;
   extraSpawnPoints = []; spawnPointNotification = null;
-  evolutionNotification = null; evolutionVFX = [];
+  evolutionNotification = null; evolutionWaiting = false; evolutionVFX = [];
   currentTier = 0;
   for (const type of ['gun', 'cannon', 'sniper', 'frost']) {
     TOWER_DEFS[type] = TOWER_TIERS[0].defs[type];

@@ -484,36 +484,62 @@ function draw() {
       const v = inGrid ? mapData[r][c] : 0;
       if (v === 0 || v === 4) {
         const isRock = v === 4;
-        ctx.fillStyle = isRock ? currentAtmosphere.rock : currentAtmosphere.grass;
+        // Grass base for both grass and rock tiles
+        ctx.fillStyle = currentAtmosphere.grass;
         ctx.fillRect(x, y, TILE, TILE);
-        ctx.strokeStyle = currentAtmosphere.gridLine; ctx.lineWidth = 0.5;
-        ctx.strokeRect(x, y, TILE, TILE);
-        ctx.fillStyle = isRock ? currentAtmosphere.rockTex : currentAtmosphere.grassTex;
+        if (!isRock) {
+          ctx.strokeStyle = currentAtmosphere.gridLine; ctx.lineWidth = 0.5;
+          ctx.strokeRect(x, y, TILE, TILE);
+        }
         if (isRock) {
-          // Stone shapes
+          // Seed random per tile for consistent look
+          const seed = (r * 137 + c * 251) & 0xffff;
+          const cx = x + TILE * 0.5, cy = y + TILE * 0.5;
+          // Large organic boulder — wobbly ellipse
+          ctx.fillStyle = currentAtmosphere.rock;
           ctx.beginPath();
-          ctx.moveTo(x+TILE*0.1,y+TILE*0.35); ctx.lineTo(x+TILE*0.2,y+TILE*0.15);
-          ctx.lineTo(x+TILE*0.45,y+TILE*0.12); ctx.lineTo(x+TILE*0.5,y+TILE*0.3);
-          ctx.lineTo(x+TILE*0.3,y+TILE*0.4); ctx.closePath(); ctx.fill();
+          const pts = 8;
+          for (let i = 0; i < pts; i++) {
+            const a = (Math.PI * 2 / pts) * i;
+            const wobble = 0.82 + ((Math.sin(seed + i * 3.7) * 0.5 + 0.5) * 0.36);
+            const rx = TILE * 0.38 * wobble;
+            const ry = TILE * 0.34 * wobble;
+            const px = cx + Math.cos(a) * rx;
+            const py = cy + Math.sin(a) * ry;
+            i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+          }
+          ctx.closePath(); ctx.fill();
+          // Lighter top highlight
+          ctx.fillStyle = currentAtmosphere.rockTex;
           ctx.beginPath();
-          ctx.moveTo(x+TILE*0.5,y+TILE*0.5); ctx.lineTo(x+TILE*0.6,y+TILE*0.38);
-          ctx.lineTo(x+TILE*0.85,y+TILE*0.42); ctx.lineTo(x+TILE*0.9,y+TILE*0.6);
-          ctx.lineTo(x+TILE*0.65,y+TILE*0.68); ctx.closePath(); ctx.fill();
+          for (let i = 0; i < pts; i++) {
+            const a = (Math.PI * 2 / pts) * i;
+            const wobble = 0.72 + ((Math.sin(seed + i * 3.7) * 0.5 + 0.5) * 0.28);
+            const rx = TILE * 0.28 * wobble;
+            const ry = TILE * 0.24 * wobble;
+            const px = cx + Math.cos(a) * rx - TILE * 0.02;
+            const py = cy + Math.sin(a) * ry - TILE * 0.04;
+            i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+          }
+          ctx.closePath(); ctx.fill();
+          // Small secondary pebble
+          const p2x = cx + TILE * (((seed >> 4) & 7) / 14 - 0.25);
+          const p2y = cy + TILE * (((seed >> 7) & 7) / 14 - 0.25);
+          ctx.fillStyle = currentAtmosphere.rock;
+          ctx.beginPath(); ctx.arc(p2x + TILE * 0.2, p2y + TILE * 0.22, TILE * 0.1, 0, Math.PI * 2); ctx.fill();
+          // Cracks / texture lines
+          ctx.strokeStyle = currentAtmosphere.gridLine; ctx.lineWidth = 0.7;
           ctx.beginPath();
-          ctx.moveTo(x+TILE*0.2,y+TILE*0.6); ctx.lineTo(x+TILE*0.35,y+TILE*0.55);
-          ctx.lineTo(x+TILE*0.5,y+TILE*0.7); ctx.lineTo(x+TILE*0.4,y+TILE*0.85);
-          ctx.lineTo(x+TILE*0.15,y+TILE*0.8); ctx.closePath(); ctx.fill();
-          // Highlight edges
-          ctx.strokeStyle = currentAtmosphere.gridLine;
-          ctx.lineWidth = 0.8;
-          ctx.beginPath();
-          ctx.moveTo(x+TILE*0.2,y+TILE*0.15); ctx.lineTo(x+TILE*0.45,y+TILE*0.12);
-          ctx.moveTo(x+TILE*0.6,y+TILE*0.38); ctx.lineTo(x+TILE*0.85,y+TILE*0.42);
-          ctx.moveTo(x+TILE*0.35,y+TILE*0.55); ctx.lineTo(x+TILE*0.5,y+TILE*0.7);
+          ctx.moveTo(cx - TILE * 0.1, cy - TILE * 0.05);
+          ctx.lineTo(cx + TILE * 0.08, cy + TILE * 0.1);
+          ctx.moveTo(cx + TILE * 0.05, cy - TILE * 0.15);
+          ctx.lineTo(cx + TILE * 0.15, cy + TILE * 0.02);
           ctx.stroke();
         } else {
-          ctx.fillRect(x + TILE*0.25, y + TILE*0.35, TILE*0.12, TILE*0.12);
-          ctx.fillRect(x + TILE*0.65, y + TILE*0.6, TILE*0.1, TILE*0.1);
+          // Grass texture — small dots instead of squares
+          ctx.fillStyle = currentAtmosphere.grassTex;
+          ctx.beginPath(); ctx.arc(x + TILE*0.3, y + TILE*0.4, TILE*0.05, 0, Math.PI*2); ctx.fill();
+          ctx.beginPath(); ctx.arc(x + TILE*0.7, y + TILE*0.65, TILE*0.04, 0, Math.PI*2); ctx.fill();
         }
       } else {
         ctx.fillStyle = v === 2 ? currentAtmosphere.startTile : v === 3 ? currentAtmosphere.endTile : currentAtmosphere.path;
@@ -1112,6 +1138,15 @@ function draw() {
     ctx.font = `${Math.max(9, TILE * 0.25)}px 'Share Tech Mono', monospace`;
     ctx.textAlign = 'center';
     ctx.fillText('TOWERS RESET TO LV.1', W / 2, H * 0.50 + 4 * (TILE * 0.42 + 3) + TILE * 0.3);
+
+    // "TAP TO CONTINUE" prompt (pulsing)
+    if (evolutionWaiting) {
+      const blink = Math.sin(Date.now() * 0.004) * 0.3 + 0.7;
+      ctx.globalAlpha = alpha * blink;
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `bold ${Math.max(12, TILE * 0.38)}px Orbitron, sans-serif`;
+      ctx.fillText('TAP TO CONTINUE', W / 2, H * 0.82);
+    }
 
     ctx.restore();
   }
